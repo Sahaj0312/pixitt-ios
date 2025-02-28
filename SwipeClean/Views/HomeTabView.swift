@@ -53,44 +53,66 @@ struct HomeTabView: View {
                         Spacer()
                     }
                     
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 4), count: 2), spacing: 4) {
-                        let monthAssets = manager.assetsPreview(for: month, year: year)
-                        ForEach(Array(monthAssets.prefix(4).enumerated()), id: \.element.id) { index, asset in
-                            RoundedRectangle(cornerRadius: 8)
-                                .frame(width: cellSize, height: cellSize)
-                                .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
-                                .overlay(
-                                    Group {
-                                        if let thumbnail = asset.thumbnail {
-                                            Image(uiImage: thumbnail)
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: cellSize, height: cellSize)
-                                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                                        }
+                    let monthAssets = manager.assetsPreview(for: month, year: year)
+                    if monthAssets.count == 1, let asset = monthAssets.first {
+                        // Single image view
+                        RoundedRectangle(cornerRadius: 8)
+                            .frame(width: gridWidth, height: gridWidth)
+                            .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
+                            .overlay(
+                                Group {
+                                    if let thumbnail = asset.thumbnail {
+                                        Image(uiImage: thumbnail)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: gridWidth, height: gridWidth)
+                                            .clipShape(RoundedRectangle(cornerRadius: 8))
                                     }
-                                )
-                                .overlay(
-                                    Group {
-                                        if index == 3, let totalCount = manager.assetsByYearMonth[year]?[month]?.count, totalCount > 4 {
-                                            RoundedRectangle(cornerRadius: 8)
-                                                .foregroundStyle(Color.primaryTextColor.opacity(0.7))
-                                                .overlay(
-                                                    Text("+\(totalCount - 3)")
-                                                        .foregroundStyle(.white)
-                                                        .font(.system(size: 14, weight: .semibold))
-                                                )
+                                }
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        // 2x2 grid view
+                        LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 4), count: 2), spacing: 4) {
+                            ForEach(Array(monthAssets.prefix(4).enumerated()), id: \.element.id) { index, asset in
+                                RoundedRectangle(cornerRadius: 8)
+                                    .frame(width: cellSize, height: cellSize)
+                                    .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
+                                    .overlay(
+                                        Group {
+                                            if let thumbnail = asset.thumbnail {
+                                                Image(uiImage: thumbnail)
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: cellSize, height: cellSize)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                            }
                                         }
-                                    }
-                                )
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
-                        }
-                        
-                        // Fill remaining spaces with empty rectangles if less than 4 photos
-                        ForEach(monthAssets.prefix(4).count..<4, id: \.self) { _ in
-                            RoundedRectangle(cornerRadius: 8)
-                                .frame(width: cellSize, height: cellSize)
-                                .foregroundStyle(Color.secondaryTextColor).opacity(0.1)
+                                    )
+                                    .overlay(
+                                        Group {
+                                            if index == 3, let totalCount = manager.assetsByYearMonth[year]?[month]?.count, totalCount > 4 {
+                                                RoundedRectangle(cornerRadius: 8)
+                                                    .foregroundStyle(Color.primaryTextColor.opacity(0.7))
+                                                    .overlay(
+                                                        Text("+\(totalCount - 3)")
+                                                            .foregroundStyle(.white)
+                                                            .font(.system(size: 14, weight: .semibold))
+                                                    )
+                                            }
+                                        }
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                            
+                            // Fill remaining spaces with empty rectangles if less than 4 photos but more than 1
+                            if monthAssets.count > 1 {
+                                ForEach(monthAssets.prefix(4).count..<4, id: \.self) { _ in
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .frame(width: cellSize, height: cellSize)
+                                        .foregroundStyle(Color.secondaryTextColor).opacity(0.1)
+                                }
+                            }
                         }
                     }
                 }
