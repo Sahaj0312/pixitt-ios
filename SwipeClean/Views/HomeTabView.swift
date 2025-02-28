@@ -1,6 +1,5 @@
-
-
 import SwiftUI
+import Photos
 
 /// The main home tab to show photo gallery sections
 struct HomeTabView: View {
@@ -13,11 +12,139 @@ struct HomeTabView: View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 35) {
                 OnThisDateSection
-                ForEach(0..<manager.sortedMonths.count, id: \.self) { index in
-                    SectionPreview(for: manager.sortedMonths[index])
+                ForEach(manager.sortedYears, id: \.self) { year in
+                    YearSection(year: year)
                 }
             }.padding(.horizontal)
             Spacer(minLength: 20)
+        }
+    }
+    
+    // MARK: - Year section with horizontally scrollable months
+    private func YearSection(year: Int) -> some View {
+        VStack(alignment: .leading, spacing: 15) {
+            Text(String(year))
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.primaryTextColor)
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 15) {
+                    ForEach(manager.sortedMonths(for: year), id: \.self) { month in
+                        MonthPreview(month: month, year: year)
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Month preview section
+    private func MonthPreview(month: CalendarMonth, year: Int) -> some View {
+        Button { manager.updateSwipeStack(with: month, year: year) } label: {
+            VStack(spacing: 8) {
+                let tileWidth: Double = (UIScreen.main.bounds.width - 200.0)
+                let gridWidth = tileWidth - 16
+                let cellSize = (gridWidth - 4) / 2
+                
+                VStack(spacing: 6) {
+                    HStack {
+                        Text(month.rawValue.capitalized)
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundStyle(Color.primaryTextColor)
+                        Spacer()
+                    }
+                    
+                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 4), count: 2), spacing: 4) {
+                        let monthAssets = manager.assetsPreview(for: month, year: year)
+                        ForEach(Array(monthAssets.prefix(4).enumerated()), id: \.element.id) { index, asset in
+                            RoundedRectangle(cornerRadius: 8)
+                                .frame(width: cellSize, height: cellSize)
+                                .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
+                                .overlay(
+                                    Group {
+                                        if let thumbnail = asset.thumbnail {
+                                            Image(uiImage: thumbnail)
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: cellSize, height: cellSize)
+                                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                        }
+                                    }
+                                )
+                                .overlay(
+                                    Group {
+                                        if index == 3, let totalCount = manager.assetsByYearMonth[year]?[month]?.count, totalCount > 4 {
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .foregroundStyle(Color.primaryTextColor.opacity(0.7))
+                                                .overlay(
+                                                    Text("+\(totalCount - 3)")
+                                                        .foregroundStyle(.white)
+                                                        .font(.system(size: 14, weight: .semibold))
+                                                )
+                                        }
+                                    }
+                                )
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                        
+                        // Fill remaining spaces with empty rectangles if less than 4 photos
+                        ForEach(monthAssets.prefix(4).count..<4, id: \.self) { _ in
+                            RoundedRectangle(cornerRadius: 8)
+                                .frame(width: cellSize, height: cellSize)
+                                .foregroundStyle(Color.secondaryTextColor).opacity(0.1)
+                        }
+                    }
+                }
+                .frame(width: tileWidth)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .foregroundStyle(Color.secondaryTextColor.opacity(0.1))
+                )
+            }
+        }
+    }
+    
+    // MARK: - Asset preview image
+    private func AssetPreviewImage(for asset: PHAsset, month: CalendarMonth) -> some View {
+        let assetModel = AssetModel(id: asset.localIdentifier, month: month)
+        let assetIdentifier = asset.localIdentifier + "_thumbnail"
+        let imageSize = AppConfig.sectionItemThumbnailSize
+        
+        return GeometryReader { geometry in
+            ZStack {
+                Color.clear
+                if let thumbnail = assetModel.thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                } else {
+                    Color.clear.onAppear {
+                        _ = manager.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                            assetModel.thumbnail = image
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Photo count overlay
+    private func PhotoCountOverlay(count: Int) -> some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Text("\(count) photos")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.white)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .foregroundStyle(Color.primaryTextColor.opacity(0.7))
+                    )
+                    .padding(10)
+            }
         }
     }
     
@@ -90,57 +217,6 @@ struct HomeTabView: View {
                 .font(.body).multilineTextAlignment(.center)
                 .padding(.horizontal).opacity(0.6)
         }.opacity(manager.didGrantPermissions && !manager.hasPhotosOnThisDate ? 1 : 0)
-    }
-    
-    // MARK: - Photos/Videos preview section for a given month
-    private func SectionPreview(for month: CalendarMonth) -> some View {
-        Button { manager.updateSwipeStack(with: month) } label: {
-            VStack(spacing: 8) {
-                HStack {
-                    Text(month.rawValue.capitalized)
-                        .font(.system(size: 22, weight: .medium, design: .rounded))
-                    Spacer()
-                }.foregroundStyle(Color.primaryTextColor)
-                let tileHeight: Double = (UIScreen.main.bounds.width - 65.0)/3.0
-                LazyVGrid(columns: columns, spacing: gridSpacing) {
-                    ForEach(0..<manager.assetsPreview(for: month).count, id: \.self) { index in
-                        let asset: AssetModel = manager.assetsPreview(for: month)[index]
-                        RoundedRectangle(cornerRadius: 15).frame(height: tileHeight)
-                            .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
-                            .overlay(GridItemImage(for: asset)).clipped()
-                            .overlay(TotalCountTag(for: month, index: index))
-                            .clipShape(RoundedRectangle(cornerRadius: 15))
-                    }
-                }
-            }
-        }
-    }
-    
-    /// Grid item asset image
-    private func GridItemImage(for asset: AssetModel) -> some View {
-        ZStack {
-            if let thumbnail = asset.thumbnail {
-                Image(uiImage: thumbnail)
-                    .resizable().aspectRatio(contentMode: .fill)
-            }
-        }
-    }
-    
-    /// Total assets count tag overlay
-    private func TotalCountTag(for month: CalendarMonth, index: Int) -> some View {
-        ZStack {
-            if let count = manager.assetsCount(for: month), index == 2, count > 3 {
-                RoundedRectangle(cornerRadius: 8).opacity(0.7)
-                    .foregroundStyle(Color.primaryTextColor).padding(15)
-                Text("+\(Int(count - 2).string)").foregroundStyle(.white)
-                    .font(.system(size: 18, weight: .semibold))
-            }
-        }
-    }
-    
-    /// Grid columns configuration
-    private var columns: [GridItem] {
-        Array(repeating: GridItem(spacing: gridSpacing), count: 3)
     }
 }
 

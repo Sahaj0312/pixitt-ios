@@ -27,7 +27,7 @@ class AppConfig {
     
     // MARK: - In App Purchases
     static let premiumVersion: String = "SwipeClean.Premium"
-    static let freePhotosStackCount: Int = 20
+    static let freePhotosStackCount: Int = 500
     static let premiumFeaturesList: [String] = ["Unlimited Swipes", "Remove All Ads"]
 }
 

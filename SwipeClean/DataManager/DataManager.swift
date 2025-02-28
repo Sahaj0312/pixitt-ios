@@ -1,5 +1,3 @@
-
-
 import Photos
 import SwiftUI
 import PhotosUI
@@ -36,6 +34,7 @@ class DataManager: NSObject, ObservableObject {
     private let imageManager: PHImageManager = PHImageManager()
     private var fetchResult: PHFetchResult<PHAsset>!
     private var assetsByMonth: [CalendarMonth: [PHAsset]] = [CalendarMonth: [PHAsset]]()
+    var assetsByYearMonth: [Int: [CalendarMonth: [PHAsset]]] = [:]
     
     /// Default initializer
     override init() {
@@ -48,6 +47,21 @@ class DataManager: NSObject, ObservableObject {
     /// Sorted months based on current date
     var sortedMonths: [CalendarMonth] {
         CalendarMonth.allCases
+    }
+    
+    /// Get sorted years in descending order
+    var sortedYears: [Int] {
+        Array(assetsByYearMonth.keys).sorted(by: >)
+    }
+    
+    /// Get sorted months for a given year that have photos
+    func sortedMonths(for year: Int) -> [CalendarMonth] {
+        guard let yearData = assetsByYearMonth[year] else { return [] }
+        return yearData.keys.sorted { month1, month2 in
+            let monthIndex1 = CalendarMonth.allCases.firstIndex(of: month1) ?? 0
+            let monthIndex2 = CalendarMonth.allCases.firstIndex(of: month2) ?? 0
+            return monthIndex1 < monthIndex2
+        }
     }
 }
 
@@ -99,8 +113,19 @@ extension DataManager {
     /// Get up to 3 assets for a given month
     /// - Parameter month: month to get the assets for Discover tab
     /// - Returns: returns up to 3 assets (or placeholders)
-    func assetsPreview(for month: CalendarMonth) -> [AssetModel] {
-        Array(galleryAssets.filter { $0.month == month }.prefix(3))
+    func assetsPreview(for month: CalendarMonth, year: Int) -> [AssetModel] {
+        if let assets = assetsByYearMonth[year]?[month]?.prefix(4) {
+            return assets.map { asset in
+                let assetModel = AssetModel(id: asset.localIdentifier, month: month)
+                let assetIdentifier = asset.localIdentifier + "_thumbnail"
+                let imageSize = AppConfig.sectionItemThumbnailSize
+                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                    assetModel.thumbnail = image
+                }
+                return assetModel
+            }
+        }
+        return []
     }
     
     /// Get the total number of assets for a given month
@@ -190,7 +215,9 @@ extension DataManager {
     private func processFetchResult() {
         fetchResult.enumerateObjects { asset, _, _ in
             guard let creationDate = asset.creationDate else { return }
+            let year = Calendar.current.component(.year, from: creationDate)
             self.assetsByMonth[creationDate.month, default: []].append(asset)
+            self.assetsByYearMonth[year, default: [:]][creationDate.month, default: []].append(asset)
         }
         
         /// Update the SwipeClean tab with `On This Date` photos by default
@@ -232,7 +259,7 @@ extension DataManager {
     }
     
     /// Update the `assetsSwipeStack` with selected category
-    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
+    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
         func appendSwipeStackAsset(_ asset: PHAsset) {
             let assetIdentifier = asset.localIdentifier
             let imageSize = AppConfig.swipeStackItemSize
@@ -265,9 +292,8 @@ extension DataManager {
             assets = assetsByMonth[Date().month]?
                 .sorted(by: { $0.creationDate ?? Date() > $1.creationDate ?? Date() })
                 .filter({ $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) ?? []
-        } else {
-            guard let month = calendarMonth else { return }
-            assets = assetsByMonth[month] ?? []
+        } else if let month = calendarMonth, let year = year {
+            assets = assetsByYearMonth[year]?[month] ?? []
         }
         
         if switchTabs {
@@ -352,21 +378,19 @@ extension DataManager {
         return nil
     }
     
-    /// Request image from photo library for a given asset identifier
-    /// - Parameters:
-    ///   - asset: asset from the library
-    ///   - assetIdentifier: asset identifier used to save the image to Core Data
-    ///   - size: image size to be requested
-    ///   - completion: returns the image if available
-    private func requestImage(for asset: PHAsset, assetIdentifier: String,
-                              size: CGSize, completion: @escaping (_ image: UIImage?) -> Void) {
+    /// Request image for a given asset
+    func requestImage(for asset: PHAsset, assetIdentifier: String, size: CGSize, completion: @escaping (UIImage?) -> Void) -> Bool {
         if let cachedImage = fetchCachedImage(for: assetIdentifier) {
             completion(cachedImage)
-        } else {
-            imageManager.requestImage(for: asset, targetSize: size, contentMode: .aspectFill, options: .opportunistic) { image, _ in
+            return true
+        }
+        
+        imageManager.requestImage(for: asset, targetSize: size, contentMode: .aspectFill, options: .opportunistic) { image, _ in
+            if let image = image {
                 self.saveAsset(image: image, assetIdentifier: assetIdentifier)
                 completion(image)
             }
         }
+        return false
     }
 }
