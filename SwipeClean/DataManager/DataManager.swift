@@ -1,9 +1,4 @@
-//
-//  DataManager.swift
-//  SwipeClean
-//
-//  Created by Apps4World on 1/3/25.
-//
+
 
 import Photos
 import SwiftUI
