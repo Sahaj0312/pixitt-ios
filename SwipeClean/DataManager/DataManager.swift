@@ -27,6 +27,9 @@ class DataManager: NSObject, ObservableObject {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
     }
     
+    // Persistence key for photo bin assets
+    private let photoBinPersistenceKey = "photoBinAssetIDs"
+    
     /// Core Data container with the database model
     private let container: NSPersistentContainer = NSPersistentContainer(name: "Database")
     
@@ -166,6 +169,26 @@ extension DataManager {
         let assetIdentifier: String = model.id
         let imageSize: CGSize = AppConfig.sectionItemThumbnailSize
         if let asset = assetsByMonth.flatMap({ $0.value }).first(where: { $0.localIdentifier == assetIdentifier }) {
+            // Update asset counts in the assetsByMonth and assetsByYearMonth dictionaries
+            if let creationDate = asset.creationDate {
+                let year = Calendar.current.component(.year, from: creationDate)
+                let month = creationDate.month
+                
+                // Remove the asset from assetsByMonth
+                if var monthAssets = assetsByMonth[month] {
+                    monthAssets.removeAll(where: { $0.localIdentifier == assetIdentifier })
+                    assetsByMonth[month] = monthAssets
+                }
+                
+                // Remove the asset from assetsByYearMonth
+                if var yearMonths = assetsByYearMonth[year],
+                   var monthAssets = yearMonths[month] {
+                    monthAssets.removeAll(where: { $0.localIdentifier == assetIdentifier })
+                    yearMonths[month] = monthAssets
+                    assetsByYearMonth[year] = yearMonths
+                }
+            }
+            
             requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                 model.thumbnail = image
                 model.swipeStackImage = nil
@@ -173,6 +196,12 @@ extension DataManager {
                 self.assetsSwipeStack.removeAll(where: { $0.id == model.id })
                 self.freePhotosStackCount += 1
                 self.appendStackAssetsIfNeeded()
+                
+                // Notify UI to refresh
+                DispatchQueue.main.async {
+                    self.objectWillChange.send()
+                    self.savePhotoBinState()
+                }
             }
         } else {
             presentAlert(title: "Oops!", message: "Something went wrong with this image", primaryAction: .Cancel)
@@ -198,7 +227,30 @@ extension DataManager {
     /// Move a `delete` item back `assetsSwipeStack`
     /// - Parameter model: asset model
     func restoreAsset(_ model: AssetModel) {
+        // Find the original asset
+        if let asset = assetsByMonth.flatMap({ $0.value }).first(where: { $0.localIdentifier == model.id }),
+           let creationDate = asset.creationDate {
+            let year = Calendar.current.component(.year, from: creationDate)
+            let month = creationDate.month
+            
+            // Add the asset back to assetsByMonth if it's not already there
+            if !assetsByMonth[month, default: []].contains(where: { $0.localIdentifier == model.id }) {
+                assetsByMonth[month, default: []].append(asset)
+            }
+            
+            // Add the asset back to assetsByYearMonth if it's not already there
+            if !assetsByYearMonth[year, default: [:]][month, default: []].contains(where: { $0.localIdentifier == model.id }) {
+                assetsByYearMonth[year, default: [:]][month, default: []].append(asset)
+            }
+            
+            // Notify UI to refresh
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+            }
+        }
+        
         removeStackAssets.removeAll(where: { $0.id == model.id })
+        savePhotoBinState()
     }
 }
 
@@ -251,6 +303,9 @@ extension DataManager {
                 }
             }
         }
+        
+        /// Load saved photo bin state
+        loadPhotoBinState()
         
         /// Show the `Discover` tab
         DispatchQueue.main.async {
@@ -323,6 +378,7 @@ extension DataManager {
                 if success {
                     DispatchQueue.main.async {
                         self.removeStackAssets.removeAll()
+                        self.savePhotoBinState()
                     }
                 } else if let errorMessage = error?.localizedDescription {
                     presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
@@ -392,5 +448,96 @@ extension DataManager {
             }
         }
         return false
+    }
+}
+
+// MARK: - Video Handling
+extension DataManager {
+    /// Check if an asset is a video and return its URL if it is
+    /// - Parameters:
+    ///   - assetIdentifier: The asset identifier
+    ///   - completion: Callback with a boolean indicating if it's a video and the video URL if applicable
+    func checkIfAssetIsVideo(_ assetIdentifier: String, completion: @escaping (Bool, URL?) -> Void) {
+        let allAssets = assetsByMonth.flatMap { $0.value }
+        guard let asset = allAssets.first(where: { $0.localIdentifier == assetIdentifier }) else {
+            completion(false, nil)
+            return
+        }
+        
+        // Check if the asset is a video
+        if asset.mediaType == .video {
+            // Request the video URL
+            let options = PHVideoRequestOptions()
+            options.version = .original
+            options.deliveryMode = .highQualityFormat
+            
+            imageManager.requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
+                guard let urlAsset = avAsset as? AVURLAsset else {
+                    DispatchQueue.main.async {
+                        completion(false, nil)
+                    }
+                    return
+                }
+                
+                DispatchQueue.main.async {
+                    completion(true, urlAsset.url)
+                }
+            }
+        } else {
+            completion(false, nil)
+        }
+    }
+}
+
+// MARK: - Photo Bin Persistence
+extension DataManager {
+    /// Save photo bin asset IDs to UserDefaults
+    private func savePhotoBinState() {
+        let assetIDs = removeStackAssets.map { $0.id }
+        UserDefaults.standard.set(assetIDs, forKey: photoBinPersistenceKey)
+    }
+    
+    /// Load photo bin assets from UserDefaults
+    private func loadPhotoBinState() {
+        guard let assetIDs = UserDefaults.standard.array(forKey: photoBinPersistenceKey) as? [String],
+              !assetIDs.isEmpty else {
+            return
+        }
+        
+        // Clear current photo bin
+        removeStackAssets.removeAll()
+        
+        // Find and reconstruct assets
+        let allAssets = assetsByMonth.flatMap { $0.value }
+        
+        // Create a set of existing asset IDs for fast lookup
+        let existingAssetIDs = Set(allAssets.map { $0.localIdentifier })
+        
+        // Filter out any saved IDs that no longer exist in the library
+        let validAssetIDs = assetIDs.filter { existingAssetIDs.contains($0) }
+        
+        // If some assets are no longer in the library, update the saved state
+        if validAssetIDs.count < assetIDs.count {
+            UserDefaults.standard.set(validAssetIDs, forKey: photoBinPersistenceKey)
+        }
+        
+        for assetID in validAssetIDs {
+            if let asset = allAssets.first(where: { $0.localIdentifier == assetID }) {
+                let assetModel = AssetModel(id: asset.localIdentifier, month: asset.creationDate?.month ?? .january)
+                
+                // Load thumbnail
+                let assetIdentifier = assetID
+                let imageSize = AppConfig.sectionItemThumbnailSize
+                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                    assetModel.thumbnail = image
+                    if !self.removeStackAssets.contains(where: { $0.id == assetID }) {
+                        self.removeStackAssets.append(assetModel)
+                    }
+                }
+                
+                // Set creation date
+                assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+            }
+        }
     }
 }

@@ -1,9 +1,8 @@
-
 import UIKit
 import Foundation
 
 /// A model that represents a photo gallery asset (photo, video, live photo)
-class AssetModel: Identifiable {
+class AssetModel: Identifiable, Equatable {
     let id: String
     let month: CalendarMonth
     var thumbnail: UIImage?
@@ -15,6 +14,11 @@ class AssetModel: Identifiable {
         self.month = month
         self.thumbnail = UIImage(named: id)
         self.swipeStackImage = UIImage(named: id)
+    }
+    
+    /// Implement Equatable protocol - compare assets by their ID
+    static func == (lhs: AssetModel, rhs: AssetModel) -> Bool {
+        return lhs.id == rhs.id
     }
 }
 
