@@ -1,5 +1,3 @@
-
-
 import Photos
 import SwiftUI
 import Combine
@@ -39,7 +37,7 @@ extension UIAlertAction {
     }
     
     static var OK: UIAlertAction {
-        UIAlertAction(title: "OK", style: .cancel, handler: nil)
+        UIAlertAction(title: "OK", style: .default, handler: nil)
     }
 }
 

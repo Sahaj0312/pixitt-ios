@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 /// Main dashboard for the app
@@ -36,16 +35,15 @@ struct DashboardContentView: View {
                 Text(manager.selectedTab.rawValue)
                     .font(.system(size: 33, weight: .bold, design: .rounded))
                 Spacer()
-                if manager.selectedTab == .photoBin,
-                    manager.removeStackAssets.count > 0 {
-                    Button { manager.emptyPhotoBin() } label: {
-                        Text("Delete").padding(5).padding(.horizontal, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .foregroundStyle(Color.red)
-                            )
-                            .foregroundStyle(.white)
-                            .font(.system(size: 15, weight: .semibold))
+                
+                // Add Select button only for PhotoBin tab and when there are items
+                if manager.selectedTab == .photoBin && manager.removeStackAssets.count > 0 {
+                    Button(action: {
+                        NotificationCenter.default.post(name: Notification.Name("TogglePhotoBinSelection"), object: nil)
+                    }) {
+                        Text("Select")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.accentColor)
                     }
                 }
             }.padding()

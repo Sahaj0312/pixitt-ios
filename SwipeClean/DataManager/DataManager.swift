@@ -245,12 +245,41 @@ extension DataManager {
             
             // Notify UI to refresh
             DispatchQueue.main.async {
+                // Clear and rebuild gallery assets to ensure counts are updated
+                self.rebuildGalleryAssets()
                 self.objectWillChange.send()
             }
         }
         
         removeStackAssets.removeAll(where: { $0.id == model.id })
         savePhotoBinState()
+    }
+    
+    /// Rebuild gallery assets to ensure proper counts
+    private func rebuildGalleryAssets() {
+        galleryAssets.removeAll()
+        
+        for month in CalendarMonth.allCases {
+            guard let assets = assetsByMonth[month], !assets.isEmpty else { continue }
+            let assetsToAdd = assets.prefix(3)
+            for asset in assetsToAdd {
+                let assetModel = AssetModel(id: asset.localIdentifier, month: month)
+                let assetIdentifier = asset.localIdentifier + "_thumbnail"
+                let imageSize = AppConfig.sectionItemThumbnailSize
+                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                    assetModel.thumbnail = image
+                }
+                galleryAssets.append(assetModel)
+            }
+        }
+    }
+    
+    /// Get PHAssets for deletion by their identifiers
+    /// - Parameter identifiers: Array of asset identifiers
+    /// - Returns: Array of PHAssets that match the provided identifiers
+    func getAssetsForDeletion(identifiers: Set<String>) -> [PHAsset] {
+        let allAssets = assetsByMonth.flatMap { $0.value }
+        return allAssets.filter { identifiers.contains($0.localIdentifier) }
     }
 }
 
@@ -492,7 +521,7 @@ extension DataManager {
 // MARK: - Photo Bin Persistence
 extension DataManager {
     /// Save photo bin asset IDs to UserDefaults
-    private func savePhotoBinState() {
+    func savePhotoBinState() {
         let assetIDs = removeStackAssets.map { $0.id }
         UserDefaults.standard.set(assetIDs, forKey: photoBinPersistenceKey)
     }
