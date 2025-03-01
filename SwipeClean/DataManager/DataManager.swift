@@ -155,6 +155,11 @@ extension DataManager {
         guard !model.id.starts(with: "onboarding") else { return }
         freePhotosStackCount += 1
         appendStackAssetsIfNeeded()
+        
+        // Notify UI to refresh
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
     
     /// Mark asset as `delete`
@@ -197,8 +202,10 @@ extension DataManager {
                 self.freePhotosStackCount += 1
                 self.appendStackAssetsIfNeeded()
                 
-                // Notify UI to refresh
+                // Notify UI to refresh and save state
                 DispatchQueue.main.async {
+                    // Rebuild gallery assets to ensure counts are updated
+                    self.rebuildGalleryAssets()
                     self.objectWillChange.send()
                     self.savePhotoBinState()
                 }
@@ -228,7 +235,8 @@ extension DataManager {
     /// - Parameter model: asset model
     func restoreAsset(_ model: AssetModel) {
         // Find the original asset
-        if let asset = assetsByMonth.flatMap({ $0.value }).first(where: { $0.localIdentifier == model.id }),
+        let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
+        if let asset = allAssets.first(where: { $0.localIdentifier == model.id }),
            let creationDate = asset.creationDate {
             let year = Calendar.current.component(.year, from: creationDate)
             let month = creationDate.month
@@ -243,16 +251,23 @@ extension DataManager {
                 assetsByYearMonth[year, default: [:]][month, default: []].append(asset)
             }
             
+            // Remove from removeStackAssets
+            removeStackAssets.removeAll(where: { $0.id == model.id })
+            
+            // Save the updated photo bin state
+            savePhotoBinState()
+            
             // Notify UI to refresh
             DispatchQueue.main.async {
                 // Clear and rebuild gallery assets to ensure counts are updated
                 self.rebuildGalleryAssets()
                 self.objectWillChange.send()
             }
+        } else {
+            // If we can't find the asset in the fetch result, just remove it from the bin
+            removeStackAssets.removeAll(where: { $0.id == model.id })
+            savePhotoBinState()
         }
-        
-        removeStackAssets.removeAll(where: { $0.id == model.id })
-        savePhotoBinState()
     }
     
     /// Rebuild gallery assets to ensure proper counts
@@ -294,6 +309,11 @@ extension DataManager {
     
     /// Process fetch result assets
     private func processFetchResult() {
+        // Clear existing data
+        assetsByMonth.removeAll()
+        assetsByYearMonth.removeAll()
+        
+        // Process all assets
         fetchResult.enumerateObjects { asset, _, _ in
             guard let creationDate = asset.creationDate else { return }
             let year = Calendar.current.component(.year, from: creationDate)
@@ -305,20 +325,7 @@ extension DataManager {
         updateSwipeStack(onThisDate: true, switchTabs: false)
         
         /// Add up to 3 assets for each month to `galleryAssets`
-        galleryAssets.removeAll()
-        for month in CalendarMonth.allCases {
-            guard let assets = assetsByMonth[month], !assets.isEmpty else { continue }
-            let assetsToAdd = assets.prefix(3)
-            for asset in assetsToAdd {
-                let assetModel = AssetModel(id: asset.localIdentifier, month: month)
-                let assetIdentifier = asset.localIdentifier + "_thumbnail"
-                let imageSize = AppConfig.sectionItemThumbnailSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
-                    assetModel.thumbnail = image
-                }
-                galleryAssets.append(assetModel)
-            }
-        }
+        rebuildGalleryAssets()
         
         /// Fetch the image for `On This Date` header
         if let thisDateAsset = assetsByMonth[Date().month]?
@@ -550,6 +557,9 @@ extension DataManager {
             UserDefaults.standard.set(validAssetIDs, forKey: photoBinPersistenceKey)
         }
         
+        // Track which assets need to be removed from the main collections
+        var assetsToRemoveFromCollections = [String]()
+        
         for assetID in validAssetIDs {
             if let asset = allAssets.first(where: { $0.localIdentifier == assetID }) {
                 let assetModel = AssetModel(id: asset.localIdentifier, month: asset.creationDate?.month ?? .january)
@@ -566,7 +576,38 @@ extension DataManager {
                 
                 // Set creation date
                 assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                
+                // Add to the list of assets to remove from collections
+                assetsToRemoveFromCollections.append(assetID)
             }
+        }
+        
+        // Remove the assets from the main collections to ensure counts are consistent
+        for assetID in assetsToRemoveFromCollections {
+            if let asset = allAssets.first(where: { $0.localIdentifier == assetID }),
+               let creationDate = asset.creationDate {
+                let year = Calendar.current.component(.year, from: creationDate)
+                let month = creationDate.month
+                
+                // Remove from assetsByMonth
+                if var monthAssets = assetsByMonth[month] {
+                    monthAssets.removeAll(where: { $0.localIdentifier == assetID })
+                    assetsByMonth[month] = monthAssets
+                }
+                
+                // Remove from assetsByYearMonth
+                if var yearMonths = assetsByYearMonth[year],
+                   var monthAssets = yearMonths[month] {
+                    monthAssets.removeAll(where: { $0.localIdentifier == assetID })
+                    yearMonths[month] = monthAssets
+                    assetsByYearMonth[year] = yearMonths
+                }
+            }
+        }
+        
+        // Rebuild gallery assets to ensure counts are updated
+        if !assetsToRemoveFromCollections.isEmpty {
+            rebuildGalleryAssets()
         }
     }
 }
