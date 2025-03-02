@@ -40,13 +40,28 @@ struct DashboardContentView: View {
                 // Add Select All/Deselect All button only for PhotoBin tab and when there are items
                 if manager.selectedTab == .photoBin && manager.removeStackAssets.count > 0 {
                     Button(action: {
-                        
                         manager.togglePhotoBinSelection()
                     }) {
                         Text(manager.isAllPhotoBinItemsSelected ? "Deselect All" : "Select All")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.accentColor)
                     }
+                } else {
+                    // Show free swipes count for all other tabs
+                    HStack(spacing: 4) {
+                        Text("\(AppConfig.freePhotosStackCount - manager.freePhotosStackCount)")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.accentColor)
+                        
+                        Image(systemName: "photo.stack")
+                            .font(.system(size: 14))
+                            .foregroundColor(.accentColor)
+                    }
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.secondaryTextColor.opacity(0.1))
+                    )
                 }
             }.padding()
             Spacer()
