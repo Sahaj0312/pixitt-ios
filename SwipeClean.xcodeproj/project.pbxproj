@@ -175,9 +175,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		7917D0CE2969E71300ECEE15 /* SwipeClean */ = {
+		7917D0CE2969E71300ECEE15 /* Pixitt */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 7917D0DD2969E71400ECEE15 /* Build configuration list for PBXNativeTarget "SwipeClean" */;
+			buildConfigurationList = 7917D0DD2969E71400ECEE15 /* Build configuration list for PBXNativeTarget "Pixitt" */;
 			buildPhases = (
 				7917D0CB2969E71300ECEE15 /* Sources */,
 				7917D0CC2969E71300ECEE15 /* Frameworks */,
@@ -227,7 +227,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				7917D0CE2969E71300ECEE15 /* SwipeClean */,
+				7917D0CE2969E71300ECEE15 /* Pixitt */,
 			);
 		};
 /* End PBXProject section */
@@ -477,7 +477,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		7917D0DD2969E71400ECEE15 /* Build configuration list for PBXNativeTarget "SwipeClean" */ = {
+		7917D0DD2969E71400ECEE15 /* Build configuration list for PBXNativeTarget "Pixitt" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				7917D0DE2969E71400ECEE15 /* Debug */,

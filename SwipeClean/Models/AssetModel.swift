@@ -14,8 +14,24 @@ class AssetModel: Identifiable, Equatable {
     init(id: String, month: CalendarMonth) {
         self.id = id
         self.month = month
-        self.thumbnail = UIImage(named: id)
-        self.swipeStackImage = UIImage(named: id)
+        // Don't load images directly in initializer to avoid main thread I/O
+        // Images should be set asynchronously after initialization
+    }
+    
+    /// Load images asynchronously on a background queue
+    func loadImages(completion: (() -> Void)? = nil) {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let thumbnail = UIImage(named: self.id)
+            let stackImage = UIImage(named: self.id)
+            
+            DispatchQueue.main.async {
+                self.thumbnail = thumbnail
+                self.swipeStackImage = stackImage
+                completion?()
+            }
+        }
     }
     
     /// Implement Equatable protocol - compare assets by their ID

@@ -34,6 +34,7 @@ struct DashboardContentView: View {
             HStack {
                 Text(manager.selectedTab.rawValue)
                     .font(.system(size: 33, weight: .bold, design: .rounded))
+                    .foregroundColor(.accentColor)
                 Spacer()
                 
                 // Add Select button only for PhotoBin tab and when there are items
