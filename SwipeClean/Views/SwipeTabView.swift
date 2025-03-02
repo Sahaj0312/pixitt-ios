@@ -16,26 +16,7 @@ struct SwipeTabView: View {
                     }
                 }.padding([.top, .horizontal], 10)
                 
-                HStack(spacing: 70) {
-                    ActionButton(image: "xmark", color: .deleteColor) {
-                        guard hasFreeSwipes else {
-                            manager.fullScreenMode = .premium
-                            return
-                        }
-                        guard let asset = manager.assetsSwipeStack.first else { return }
-                        manager.deleteAsset(asset)
-                    }
-                    ActionButton(image: "heart.fill", color: .keepColor) {
-                        guard hasFreeSwipes else {
-                            manager.fullScreenMode = .premium
-                            return
-                        }
-                        guard let asset = manager.assetsSwipeStack.first else { return }
-                        manager.keepAsset(asset)
-                    }
-                }
-                .padding(.vertical, 12)
-                .disabled(manager.assetsSwipeStack.count == 0 || manager.swipeStackLoadMore)
+                // Like/dislike buttons removed
                 
             }.padding(.bottom, 5).background(
                 RoundedRectangle(cornerRadius: 28).foregroundStyle(.white)
@@ -45,22 +26,10 @@ struct SwipeTabView: View {
             Text(manager.swipeStackTitle).padding(8).padding(.horizontal, 8)
                 .background(RoundedRectangle(cornerRadius: 10).foregroundStyle(.white))
                 .font(.system(size: 16, weight: .medium, design: .rounded))
-                .foregroundStyle(Color.primaryTextColor).padding(.top, 38)
+                .foregroundStyle(Color.primaryTextColor).padding(.top, 20)
             
             Spacer()
         }
-    }
-    
-    /// Keep/Delete button with style
-    private func ActionButton(image: String, color: Color,
-                        action: @escaping () -> Void) -> some View {
-        Button { action() } label: {
-            ZStack {
-                Circle().foregroundStyle(color)
-                Image(systemName: image).foregroundStyle(.white)
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-            }
-        }.frame(width: 70, height: 70)
     }
     
     /// Empty stack of photo cards

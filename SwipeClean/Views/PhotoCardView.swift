@@ -12,7 +12,7 @@ struct PhotoCardView: View {
     @State private var isTopCard: Bool = false
     @State private var isVideo: Bool = false
     
-    static let height: Double = UIScreen.main.bounds.width * 1.0
+    static let height: Double = UIScreen.main.bounds.width * 1.5
     let asset: AssetModel
     
     // MARK: - Main rendering function
@@ -243,6 +243,13 @@ struct PhotoCardView: View {
         }
     }
     
+    /// Trigger haptic feedback
+    private func triggerHapticFeedback(intensity: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
+        let generator = UIImpactFeedbackGenerator(style: intensity)
+        generator.prepare()
+        generator.impactOccurred()
+    }
+    
     /// Update card position after the user lifts the finger off the screen
     private func updateCardEndPosition() {
         withAnimation(.easeIn){
@@ -250,15 +257,21 @@ struct PhotoCardView: View {
             if cardOffset > 150 {
                 cardOffset = 500
                 stopVideo()
+                triggerHapticFeedback(intensity: .light) // Light feedback for keeping
                 manager.keepAsset(asset)
 
             /// When user swipes left
             } else if cardOffset < -150 {
                 cardOffset = -500
                 stopVideo()
+                triggerHapticFeedback(intensity: .medium) // Medium feedback for deleting
                 manager.deleteAsset(asset)
             } else {
                 cardOffset = 0
+                // Small feedback when card returns to center
+                if abs(cardOffset) > 50 {
+                    triggerHapticFeedback(intensity: .soft)
+                }
             }
         }
     }
