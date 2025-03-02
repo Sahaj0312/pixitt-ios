@@ -34,8 +34,8 @@ struct HomeTabView: View {
     private func YearSection(year: Int) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             Text(String(year))
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.primaryTextColor)
+                .font(.system(size: 28, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.accentColor)
             
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: 15) {
@@ -58,7 +58,7 @@ struct HomeTabView: View {
                 VStack(spacing: 6) {
                     HStack {
                         Text(month.rawValue.capitalized)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundStyle(Color.primaryTextColor)
                         Spacer()
                     }

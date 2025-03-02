@@ -33,7 +33,7 @@ struct DashboardContentView: View {
         VStack {
             HStack {
                 Text(manager.selectedTab.rawValue)
-                    .font(.system(size: 33, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundColor(.accentColor)
                 Spacer()
                 
