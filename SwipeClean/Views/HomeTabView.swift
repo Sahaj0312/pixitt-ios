@@ -11,12 +11,22 @@ struct HomeTabView: View {
     var body: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 35) {
-                OnThisDateSection
+                // Side-by-side collections
+                TopCollectionsRow
+                
                 ForEach(manager.sortedYears, id: \.self) { year in
                     YearSection(year: year)
                 }
             }.padding(.horizontal)
             Spacer(minLength: 20)
+        }
+    }
+    
+    // MARK: - Top collections row (On This Date and Videos side by side)
+    private var TopCollectionsRow: some View {
+        HStack(spacing: 15) {
+            OnThisDateCard
+            VideosCard
         }
     }
     
@@ -170,39 +180,79 @@ struct HomeTabView: View {
         }
     }
     
-    // MARK: - On This Date section
-    private var OnThisDateSection: some View {
-        let tileHeight: Double = UIScreen.main.bounds.width - 100.0
-        return RoundedRectangle(cornerRadius: 25).frame(height: tileHeight)
+    // MARK: - On This Date card
+    private var OnThisDateCard: some View {
+        let cardWidth = (UIScreen.main.bounds.width - 45) / 2 // Account for padding and spacing
+        let cardHeight = cardWidth * 1.3
+        
+        return RoundedRectangle(cornerRadius: 25)
+            .frame(width: cardWidth, height: cardHeight)
             .foregroundStyle(LinearGradient(colors: [
                 .init(white: 0.94), .init(white: 0.97)
             ], startPoint: .top, endPoint: .bottom))
-            .background(ShadowBackgroundView(height: tileHeight))
-            .overlay(OnThisDateHeaderImage(height: tileHeight))
+            .background(CardShadowBackground(width: cardWidth, height: cardHeight))
+            .overlay(OnThisDateHeaderImage(width: cardWidth, height: cardHeight))
             .overlay(OnThisDateBottomOverlay)
             .overlay(PermissionsView().opacity(manager.didGrantPermissions ? 0 : 1))
     }
     
+    // MARK: - Videos card
+    private var VideosCard: some View {
+        let cardWidth = (UIScreen.main.bounds.width - 45) / 2 // Account for padding and spacing
+        let cardHeight = cardWidth * 1.3
+        
+        return RoundedRectangle(cornerRadius: 25)
+            .frame(width: cardWidth, height: cardHeight)
+            .foregroundStyle(LinearGradient(colors: [
+                .init(white: 0.94), .init(white: 0.97)
+            ], startPoint: .top, endPoint: .bottom))
+            .background(CardShadowBackground(width: cardWidth, height: cardHeight))
+            .overlay(VideosHeaderImage(width: cardWidth, height: cardHeight))
+            .overlay(VideosBottomOverlay)
+            .overlay(PermissionsView().opacity(manager.didGrantPermissions ? 0 : 1))
+    }
+    
     /// On This Date header image
-    private func OnThisDateHeaderImage(height: Double) -> some View {
+    private func OnThisDateHeaderImage(width: Double, height: Double) -> some View {
         ZStack {
             if let image = manager.onThisDateHeaderImage {
-                let width: Double = UIScreen.main.bounds.width - 32.0
                 Button { manager.updateSwipeStack(onThisDate: true) } label: {
                     Image(uiImage: image)
                         .resizable().aspectRatio(contentMode: .fill)
-                        .frame(height: height).frame(width: width)
+                        .frame(width: width, height: height)
                         .clipShape(RoundedRectangle(cornerRadius: 25))
                 }
             }
         }.opacity(!manager.didGrantPermissions ? 0 : 1)
     }
     
-    /// Custom shadow background
-    private func ShadowBackgroundView(height: Double) -> some View {
-        RoundedRectangle(cornerRadius: 25).offset(y: 20)
-            .foregroundStyle(Color.accentColor).padding()
-            .blur(radius: 10).opacity(0.5)
+    /// Videos header image
+    private func VideosHeaderImage(width: Double, height: Double) -> some View {
+        ZStack {
+            if let image = manager.videosHeaderImage {
+                Button { manager.updateSwipeStack(videos: true) } label: {
+                    Image(uiImage: image)
+                        .resizable().aspectRatio(contentMode: .fill)
+                        .frame(width: width, height: height)
+                        .clipShape(RoundedRectangle(cornerRadius: 25))
+                        .overlay(
+                            // Video play icon overlay
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 40))
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.5), radius: 4, x: 0, y: 2)
+                        )
+                }
+            }
+        }.opacity(!manager.didGrantPermissions || !manager.hasVideos ? 0 : 1)
+    }
+    
+    /// Custom shadow background for cards
+    private func CardShadowBackground(width: Double, height: Double) -> some View {
+        RoundedRectangle(cornerRadius: 25).offset(y: 10)
+            .frame(width: width, height: height)
+            .foregroundStyle(Color.accentColor).padding(5)
+            .blur(radius: 8).opacity(0.4)
     }
     
     /// On This Date bottom overlay
@@ -214,14 +264,14 @@ struct HomeTabView: View {
             HStack {
                 VStack(alignment: .leading) {
                     Text(Date().string(format: "MMMM d"))
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.system(size: 12, weight: .medium))
                     Text("On This Date")
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
                 Spacer()
             }
             .foregroundStyle(Color.white)
-            .padding(10).padding(.horizontal, 5).background(
+            .padding(8).padding(.horizontal, 4).background(
                 RoundedCorner(radius: 25, corners: [.bottomLeft, .bottomRight])
                     .foregroundStyle(Color.primaryTextColor).opacity(0.3)
             )
@@ -229,16 +279,56 @@ struct HomeTabView: View {
         }.allowsHitTesting(false)
     }
     
+    /// Videos bottom overlay
+    private var VideosBottomOverlay: some View {
+        VStack {
+            Spacer()
+            NoVideosOverlay
+            Spacer()
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("\(manager.videoAssets.count) Videos")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Videos")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                }
+                Spacer()
+            }
+            .foregroundStyle(Color.white)
+            .padding(8).padding(.horizontal, 4).background(
+                RoundedCorner(radius: 25, corners: [.bottomLeft, .bottomRight])
+                    .foregroundStyle(Color.primaryTextColor).opacity(0.3)
+            )
+            .opacity(manager.didGrantPermissions && manager.hasVideos ? 1 : 0)
+        }.allowsHitTesting(false)
+    }
+    
     /// No photos on this date
     private var NoPhotosOverlay: some View {
         VStack {
             Image(systemName: "calendar")
-                .font(.system(size: 40)).padding(5)
-            Text("Empty Today").font(.title2).fontWeight(.bold)
-            Text("Nothing from this date. Explore other memories or check back later.")
-                .font(.body).multilineTextAlignment(.center)
-                .padding(.horizontal).opacity(0.6)
-        }.opacity(manager.didGrantPermissions && !manager.hasPhotosOnThisDate ? 1 : 0)
+                .font(.system(size: 30)).padding(3)
+            Text("Empty Today").font(.headline).fontWeight(.bold)
+            Text("Nothing from this date.")
+                .font(.caption).multilineTextAlignment(.center)
+                .padding(.horizontal, 5).opacity(0.6)
+        }
+        .padding(.horizontal, 5)
+        .opacity(manager.didGrantPermissions && !manager.hasPhotosOnThisDate ? 1 : 0)
+    }
+    
+    /// No videos overlay
+    private var NoVideosOverlay: some View {
+        VStack {
+            Image(systemName: "video")
+                .font(.system(size: 30)).padding(3)
+            Text("No Videos").font(.headline).fontWeight(.bold)
+            Text("No videos found.")
+                .font(.caption).multilineTextAlignment(.center)
+                .padding(.horizontal, 5).opacity(0.6)
+        }
+        .padding(.horizontal, 5)
+        .opacity(manager.didGrantPermissions && !manager.hasVideos ? 1 : 0)
     }
 }
 

@@ -14,11 +14,13 @@ class DataManager: NSObject, ObservableObject {
     @Published var didGrantPermissions: Bool = false
     @Published var didProcessAssets: Bool = false
     @Published var onThisDateHeaderImage: UIImage?
+    @Published var videosHeaderImage: UIImage?
     @Published var assetsSwipeStack: [AssetModel] = [AssetModel]()
     @Published var removeStackAssets: [AssetModel] = [AssetModel]()
     @Published var keepStackAssets: [AssetModel] = [AssetModel]()
     @Published var swipeStackLoadMore: Bool = false
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
+    @Published var videoAssets: [AssetModel] = [AssetModel]()
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
@@ -122,13 +124,19 @@ extension DataManager {
                 let assetModel = AssetModel(id: asset.localIdentifier, month: month)
                 let assetIdentifier = asset.localIdentifier + "_thumbnail"
                 let imageSize = AppConfig.sectionItemThumbnailSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                     assetModel.thumbnail = image
                 }
                 return assetModel
             }
         }
         return []
+    }
+    
+    /// Get up to 4 video assets for the videos section
+    /// - Returns: returns up to 4 video assets
+    func videosPreview() -> [AssetModel] {
+        return Array(videoAssets.prefix(4))
     }
     
     /// Get the total number of assets for a given month
@@ -141,6 +149,11 @@ extension DataManager {
     /// Check if the user has photos for this date in current year or previous years
     var hasPhotosOnThisDate: Bool {
         onThisDateHeaderImage != nil
+    }
+    
+    /// Check if the user has videos
+    var hasVideos: Bool {
+        !videoAssets.isEmpty
     }
 }
 
@@ -194,7 +207,7 @@ extension DataManager {
                 }
             }
             
-            requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+            self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                 model.thumbnail = image
                 model.swipeStackImage = nil
                 self.removeStackAssets.appendIfNeeded(model)
@@ -223,7 +236,7 @@ extension DataManager {
         swipeStackLoadMore = true
         Interstitial.shared.showInterstitialAds()
         DispatchQueue.global(qos: .userInitiated).async {
-            self.updateSwipeStack(with: month, onThisDate: onThisDate, switchTabs: false)
+            self.updateSwipeStack(with: month, onThisDate: onThisDate, videos: false, switchTabs: false)
             DispatchQueue.main.async { self.swipeStackLoadMore = false }
         }
     }
@@ -281,7 +294,7 @@ extension DataManager {
                 let assetModel = AssetModel(id: asset.localIdentifier, month: month)
                 let assetIdentifier = asset.localIdentifier + "_thumbnail"
                 let imageSize = AppConfig.sectionItemThumbnailSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                     assetModel.thumbnail = image
                 }
                 galleryAssets.append(assetModel)
@@ -312,6 +325,7 @@ extension DataManager {
         // Clear existing data
         assetsByMonth.removeAll()
         assetsByYearMonth.removeAll()
+        videoAssets.removeAll()
         
         // Process all assets
         fetchResult.enumerateObjects { asset, _, _ in
@@ -319,10 +333,36 @@ extension DataManager {
             let year = Calendar.current.component(.year, from: creationDate)
             self.assetsByMonth[creationDate.month, default: []].append(asset)
             self.assetsByYearMonth[year, default: [:]][creationDate.month, default: []].append(asset)
+            
+            // Process video assets
+            if asset.mediaType == .video {
+                let assetModel = AssetModel(id: asset.localIdentifier, month: creationDate.month)
+                assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                assetModel.duration = asset.duration
+                
+                // Load thumbnail for video
+                let assetIdentifier = asset.localIdentifier + "_video_thumbnail"
+                let imageSize = AppConfig.sectionItemThumbnailSize
+                self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                    assetModel.thumbnail = image
+                    
+                    // Set the first video as the header image if we don't have one yet
+                    if self.videosHeaderImage == nil {
+                        let headerImageSize = AppConfig.onThisDateItemSize
+                        self.requestImage(for: asset, assetIdentifier: asset.localIdentifier + "_video_header", size: headerImageSize) { headerImage in
+                            DispatchQueue.main.async {
+                                self.videosHeaderImage = headerImage
+                            }
+                        }
+                    }
+                }
+                
+                self.videoAssets.append(assetModel)
+            }
         }
         
         /// Update the SwipeClean tab with `On This Date` photos by default
-        updateSwipeStack(onThisDate: true, switchTabs: false)
+        updateSwipeStack(onThisDate: true, videos: false, switchTabs: false)
         
         /// Add up to 3 assets for each month to `galleryAssets`
         rebuildGalleryAssets()
@@ -333,7 +373,7 @@ extension DataManager {
             .first(where: { $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) {
             let assetIdentifier = thisDateAsset.localIdentifier + "_onThisDate"
             let imageSize = AppConfig.onThisDateItemSize
-            requestImage(for: thisDateAsset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+            self.requestImage(for: thisDateAsset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                 DispatchQueue.main.async {
                     self.onThisDateHeaderImage = image
                 }
@@ -350,16 +390,19 @@ extension DataManager {
     }
     
     /// Update the `assetsSwipeStack` with selected category
-    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, switchTabs: Bool = true) {
+    func updateSwipeStack(with calendarMonth: CalendarMonth? = nil, year: Int? = nil, onThisDate: Bool = false, videos: Bool = false, switchTabs: Bool = true) {
         func appendSwipeStackAsset(_ asset: PHAsset) {
             let assetIdentifier = asset.localIdentifier
             let imageSize = AppConfig.swipeStackItemSize
-            requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+            self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                 func appendAsset() {
                     if let assetImage = image {
                         let assetModel = AssetModel(id: asset.localIdentifier, month: Date().month)
                         assetModel.swipeStackImage = assetImage
                         assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                        if asset.mediaType == .video {
+                            assetModel.duration = asset.duration
+                        }
                         self.assetsSwipeStack.appendIfNeeded(assetModel)
                     }
                 }
@@ -379,7 +422,14 @@ extension DataManager {
         
         var assets: [PHAsset] = [PHAsset]()
         
-        if onThisDate {
+        if videos {
+            // Get all video assets
+            let videoOptions = PHFetchOptions()
+            videoOptions.predicate = NSPredicate(format: "mediaType = %d", PHAssetMediaType.video.rawValue)
+            videoOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+            let videoFetchResult = PHAsset.fetchAssets(with: videoOptions)
+            assets = videoFetchResult.objects(at: IndexSet(integersIn: 0..<videoFetchResult.count))
+        } else if onThisDate {
             assets = assetsByMonth[Date().month]?
                 .sorted(by: { $0.creationDate ?? Date() > $1.creationDate ?? Date() })
                 .filter({ $0.creationDate?.string(format: "MM/dd") == Date().string(format: "MM/dd") }) ?? []
@@ -395,7 +445,11 @@ extension DataManager {
         
         DispatchQueue.main.async {
             let thisDateTitle: String = AppConfig.swipeStackOnThisDateTitle
-            self.swipeStackTitle = onThisDate ? thisDateTitle : calendarMonth?.rawValue.capitalized ?? ""
+            if videos {
+                self.swipeStackTitle = "Videos"
+            } else {
+                self.swipeStackTitle = onThisDate ? thisDateTitle : calendarMonth?.rawValue.capitalized ?? ""
+            }
         }
         
         assets.filter(shouldAppendAsset).prefix(10).forEach { appendSwipeStackAsset($0) }
@@ -567,7 +621,7 @@ extension DataManager {
                 // Load thumbnail
                 let assetIdentifier = assetID
                 let imageSize = AppConfig.sectionItemThumbnailSize
-                requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
                     assetModel.thumbnail = image
                     if !self.removeStackAssets.contains(where: { $0.id == assetID }) {
                         self.removeStackAssets.append(assetModel)

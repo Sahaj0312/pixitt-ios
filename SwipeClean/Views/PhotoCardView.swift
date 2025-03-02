@@ -73,6 +73,14 @@ struct PhotoCardView: View {
         manager.checkIfAssetIsVideo(assetId) { isVideo, videoURL in
             DispatchQueue.main.async {
                 self.isVideo = isVideo
+                
+                // If this is a video and the asset has a duration, use it
+                if isVideo && self.asset.duration == 0 {
+                    // Find the asset in the video assets collection to get its duration
+                    if let videoAsset = self.manager.videoAssets.first(where: { $0.id == assetId }) {
+                        self.asset.duration = videoAsset.duration
+                    }
+                }
             }
             
             guard isVideo, let url = videoURL else { return }
@@ -138,6 +146,22 @@ struct PhotoCardView: View {
                                                 .padding(12)
                                         }
                                         Spacer()
+                                        
+                                        // Video duration indicator
+                                        if asset.isVideo {
+                                            HStack {
+                                                Spacer()
+                                                Text(asset.formattedDuration)
+                                                    .font(.system(size: 14, weight: .semibold))
+                                                    .foregroundStyle(.white)
+                                                    .padding(6)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .foregroundStyle(Color.black.opacity(0.6))
+                                                    )
+                                                    .padding(12)
+                                            }
+                                        }
                                     }
                                 }
                             }
