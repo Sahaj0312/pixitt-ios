@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "7917D0CE2969E71300ECEE15"
-               BuildableName = "SwipeClean.app"
-               BlueprintName = "SwipeClean"
-               ReferencedContainer = "container:SwipeClean.xcodeproj">
+               BuildableName = "Pixitt.app"
+               BlueprintName = "Pixitt"
+               ReferencedContainer = "container:Pixitt.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -44,9 +44,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7917D0CE2969E71300ECEE15"
-            BuildableName = "SwipeClean.app"
-            BlueprintName = "SwipeClean"
-            ReferencedContainer = "container:SwipeClean.xcodeproj">
+            BuildableName = "Pixitt.app"
+            BlueprintName = "Pixitt"
+            ReferencedContainer = "container:Pixitt.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -61,9 +61,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "7917D0CE2969E71300ECEE15"
-            BuildableName = "SwipeClean.app"
-            BlueprintName = "SwipeClean"
-            ReferencedContainer = "container:SwipeClean.xcodeproj">
+            BuildableName = "Pixitt.app"
+            BlueprintName = "Pixitt"
+            ReferencedContainer = "container:Pixitt.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

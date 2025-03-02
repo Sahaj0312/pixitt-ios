@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 
 /// The screen that shows up when the app launches the first time
@@ -26,9 +24,9 @@ struct OnboardingContentView: View {
             .padding(.horizontal).padding(.bottom, 10)
             
             VStack {
-                Text("Swipe")
+                Text("Pix")
                     .font(.system(size: 38, weight: .medium, design: .rounded))
-                + Text("Clean")
+                + Text("itt")
                     .font(.system(size: 38, weight: .bold, design: .rounded))
                 Text("Swipe and Organize: Left to Delete,\nRight to Cherish")
                     .font(.system(size: 20, weight: .medium, design: .rounded))
@@ -64,7 +62,7 @@ struct OnboardingContentView: View {
                 Image(systemName: "photo.on.rectangle")
                     .font(.system(size: 40)).padding(5)
                 Text("Access Needed").font(.title2).fontWeight(.bold)
-                Text("To start sorting your photos, SwipeClean needs access to your gallery.")
+                Text("To start sorting your photos, Pixitt needs access to your gallery.")
                     .font(.body).multilineTextAlignment(.center)
                     .padding(.horizontal).opacity(0.6)
             }

@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 
 /// The tab to swipe left/right on photos stack

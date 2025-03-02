@@ -1,5 +1,3 @@
-
-
 import SwiftUI
 import Foundation
 
@@ -26,7 +24,7 @@ class AppConfig {
     static let yourAppURL: URL = URL(string: "https://apps.apple.com/app/idXXXXXXXXX")!
     
     // MARK: - In App Purchases
-    static let premiumVersion: String = "SwipeClean.Premium"
+    static let premiumVersion: String = "Pixitt.Premium"
     static let freePhotosStackCount: Int = 500
     static let premiumFeaturesList: [String] = ["Unlimited Swipes", "Remove All Ads"]
 }
@@ -49,7 +47,7 @@ enum FullScreenMode: Int, Identifiable {
 /// Custom tab bar items
 enum CustomTabBarItem: String, CaseIterable, Identifiable {
     case discover = "Discover"
-    case swipeClean = "SwipeClean"
+    case swipeClean = "Pixitt"
     case photoBin = "PhotoBin"
     case settings = "Settings"
     var id: Int { hashValue }

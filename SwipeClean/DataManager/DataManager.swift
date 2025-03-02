@@ -382,7 +382,7 @@ extension DataManager {
             }
         }
         
-        /// Update the SwipeClean tab with `On This Date` photos by default
+        /// Update the Pixitt tab with `On This Date` photos by default
         updateSwipeStack(onThisDate: true, videos: false, switchTabs: false)
         
         /// Add up to 3 assets for each month to `galleryAssets`

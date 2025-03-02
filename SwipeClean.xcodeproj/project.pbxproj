@@ -45,7 +45,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		7917D0CF2969E71300ECEE15 /* SwipeClean.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SwipeClean.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7917D0CF2969E71300ECEE15 /* Pixitt.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pixitt.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7917D0D22969E71300ECEE15 /* AppTemplateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTemplateApp.swift; sourceTree = "<group>"; };
 		7917D0D62969E71400ECEE15 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7967CC672969EDD2006199E8 /* DashboardContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardContentView.swift; sourceTree = "<group>"; };
@@ -92,7 +92,7 @@
 		7917D0D02969E71300ECEE15 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				7917D0CF2969E71300ECEE15 /* SwipeClean.app */,
+				7917D0CF2969E71300ECEE15 /* Pixitt.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -188,12 +188,12 @@
 			);
 			dependencies = (
 			);
-			name = SwipeClean;
+			name = Pixitt;
 			packageProductDependencies = (
 				7967CC732969EF00006199E8 /* GoogleMobileAds */,
 			);
 			productName = AppTemplate;
-			productReference = 7917D0CF2969E71300ECEE15 /* SwipeClean.app */;
+			productReference = 7917D0CF2969E71300ECEE15 /* Pixitt.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
