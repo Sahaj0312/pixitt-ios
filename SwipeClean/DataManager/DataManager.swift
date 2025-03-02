@@ -205,6 +205,11 @@ extension DataManager {
                     yearMonths[month] = monthAssets
                     assetsByYearMonth[year] = yearMonths
                 }
+                
+                // If this is a video, remove it from videoAssets
+                if asset.mediaType == .video {
+                    videoAssets.removeAll(where: { $0.id == assetIdentifier })
+                }
             }
             
             self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
@@ -262,6 +267,22 @@ extension DataManager {
             // Add the asset back to assetsByYearMonth if it's not already there
             if !assetsByYearMonth[year, default: [:]][month, default: []].contains(where: { $0.localIdentifier == model.id }) {
                 assetsByYearMonth[year, default: [:]][month, default: []].append(asset)
+            }
+            
+            // If this is a video, add it back to videoAssets if it's not already there
+            if asset.mediaType == .video && !videoAssets.contains(where: { $0.id == model.id }) {
+                let assetModel = AssetModel(id: asset.localIdentifier, month: month)
+                assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                assetModel.duration = asset.duration
+                
+                // Load thumbnail for video
+                let assetIdentifier = asset.localIdentifier + "_video_thumbnail"
+                let imageSize = AppConfig.sectionItemThumbnailSize
+                self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
+                    assetModel.thumbnail = image
+                }
+                
+                videoAssets.append(assetModel)
             }
             
             // Remove from removeStackAssets
@@ -462,13 +483,23 @@ extension DataManager {
             let allAssets = self.assetsByMonth.flatMap { $0.value }
             let removeStackAssetIdentifiers = self.removeStackAssets.compactMap { $0.id }
             let assetsToRemove = allAssets.filter { removeStackAssetIdentifiers.contains($0.localIdentifier) }
+            
+            // Keep track of video assets to remove
+            let videoAssetsToRemove = assetsToRemove.filter { $0.mediaType == .video }
+            
             PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.deleteAssets(assetsToRemove as NSArray)
             } completionHandler: { success, error in
                 if success {
                     DispatchQueue.main.async {
+                        // Remove any videos from videoAssets
+                        for videoAsset in videoAssetsToRemove {
+                            self.videoAssets.removeAll(where: { $0.id == videoAsset.localIdentifier })
+                        }
+                        
                         self.removeStackAssets.removeAll()
                         self.savePhotoBinState()
+                        self.objectWillChange.send() // Ensure UI updates
                     }
                 } else if let errorMessage = error?.localizedDescription {
                     presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
@@ -613,6 +644,8 @@ extension DataManager {
         
         // Track which assets need to be removed from the main collections
         var assetsToRemoveFromCollections = [String]()
+        // Track video assets that need to be removed from videoAssets
+        var videoAssetsToRemove = [String]()
         
         for assetID in validAssetIDs {
             if let asset = allAssets.first(where: { $0.localIdentifier == assetID }) {
@@ -630,6 +663,12 @@ extension DataManager {
                 
                 // Set creation date
                 assetModel.creationDate = asset.creationDate?.string(format: "MMMM dd, yyyy")
+                
+                // Set duration if it's a video
+                if asset.mediaType == .video {
+                    assetModel.duration = asset.duration
+                    videoAssetsToRemove.append(assetID)
+                }
                 
                 // Add to the list of assets to remove from collections
                 assetsToRemoveFromCollections.append(assetID)
@@ -657,6 +696,11 @@ extension DataManager {
                     assetsByYearMonth[year] = yearMonths
                 }
             }
+        }
+        
+        // Remove video assets from videoAssets array
+        for videoID in videoAssetsToRemove {
+            videoAssets.removeAll(where: { $0.id == videoID })
         }
         
         // Rebuild gallery assets to ensure counts are updated

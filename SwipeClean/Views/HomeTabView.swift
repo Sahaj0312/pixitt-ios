@@ -289,6 +289,7 @@ struct HomeTabView: View {
                 VStack(alignment: .leading) {
                     Text("\(manager.videoAssets.count) Videos")
                         .font(.system(size: 12, weight: .medium))
+                        .id("videoCount_\(manager.videoAssets.count)") // Force refresh when count changes
                     Text("Videos")
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                 }
