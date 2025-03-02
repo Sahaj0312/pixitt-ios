@@ -37,12 +37,13 @@ struct DashboardContentView: View {
                     .foregroundColor(.accentColor)
                 Spacer()
                 
-                // Add Select button only for PhotoBin tab and when there are items
+                // Add Select All/Deselect All button only for PhotoBin tab and when there are items
                 if manager.selectedTab == .photoBin && manager.removeStackAssets.count > 0 {
                     Button(action: {
-                        NotificationCenter.default.post(name: Notification.Name("TogglePhotoBinSelection"), object: nil)
+                        
+                        manager.togglePhotoBinSelection()
                     }) {
-                        Text("Select")
+                        Text(manager.isAllPhotoBinItemsSelected ? "Deselect All" : "Select All")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.accentColor)
                     }

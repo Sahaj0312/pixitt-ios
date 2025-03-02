@@ -21,6 +21,7 @@ class DataManager: NSObject, ObservableObject {
     @Published var swipeStackLoadMore: Bool = false
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
     @Published var videoAssets: [AssetModel] = [AssetModel]()
+    @Published var photoBinSelectedAssets: Set<String> = []
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
@@ -66,6 +67,30 @@ class DataManager: NSObject, ObservableObject {
             let monthIndex1 = CalendarMonth.allCases.firstIndex(of: month1) ?? 0
             let monthIndex2 = CalendarMonth.allCases.firstIndex(of: month2) ?? 0
             return monthIndex1 < monthIndex2
+        }
+    }
+    
+    // Computed property to check if all items are selected
+    var isAllPhotoBinItemsSelected: Bool {
+        !removeStackAssets.isEmpty && photoBinSelectedAssets.count == removeStackAssets.count
+    }
+    
+    /// Toggle selection of all items in the photo bin
+    func togglePhotoBinSelection() {
+        
+        if isAllPhotoBinItemsSelected {
+            // Deselect all
+            
+            photoBinSelectedAssets.removeAll()
+        } else {
+            // Select all
+            
+            photoBinSelectedAssets = Set(removeStackAssets.map { $0.id })
+        }
+        
+        // Force UI update
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
         }
     }
 }

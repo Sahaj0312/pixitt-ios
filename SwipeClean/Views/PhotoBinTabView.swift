@@ -6,14 +6,8 @@ import UIKit
 struct PhotoBinTabView: View {
     
     @EnvironmentObject var manager: DataManager
-    @State public var selectedAssets: Set<String> = []
-    @State public var isSelecting: Bool = false
+    @State public var isSelecting: Bool = true // Always in selection mode
     private let gridSpacing: Double = 10.0
-    
-    // Computed property to check if all items are selected
-    public var isAllSelected: Bool {
-        !manager.removeStackAssets.isEmpty && selectedAssets.count == manager.removeStackAssets.count
-    }
     
     // MARK: - Main rendering function
     var body: some View {
@@ -25,15 +19,9 @@ struct PhotoBinTabView: View {
                     AssetsGridListView
                 }
             }
-            .onAppear {
-                // Register this view instance to be accessed by the dashboard
-                NotificationCenter.default.addObserver(forName: Notification.Name("TogglePhotoBinSelection"), object: nil, queue: .main) { _ in
-                    self.toggleSelection()
-                }
-            }
             
             // Floating action buttons - show whenever there are selected assets
-            if !selectedAssets.isEmpty {
+            if !manager.photoBinSelectedAssets.isEmpty {
                 VStack {
                     Spacer()
                     HStack(spacing: 20) {
@@ -71,7 +59,7 @@ struct PhotoBinTabView: View {
     /// Keep selected assets
     private func keepSelectedAssets() {
         // Get selected assets
-        let assetsToKeep = manager.removeStackAssets.filter { selectedAssets.contains($0.id) }
+        let assetsToKeep = manager.removeStackAssets.filter { manager.photoBinSelectedAssets.contains($0.id) }
         
         // Restore each selected asset
         for asset in assetsToKeep {
@@ -79,8 +67,7 @@ struct PhotoBinTabView: View {
         }
         
         // Clear selection
-        selectedAssets.removeAll()
-        isSelecting = false
+        manager.photoBinSelectedAssets.removeAll()
         
         // Force UI refresh
         DispatchQueue.main.async {
@@ -91,14 +78,14 @@ struct PhotoBinTabView: View {
     /// Delete selected assets
     private func deleteSelectedAssets() {
         // Show confirmation alert
-        let itemsCount = selectedAssets.count
+        let itemsCount = manager.photoBinSelectedAssets.count
         presentAlert(
             title: "Delete Photos",
             message: "Are you sure you want to permanently delete these \(itemsCount) photos?",
             primaryAction: .Cancel,
             secondaryAction: .init(title: "Delete", style: .destructive, handler: { _ in
                 // Get assets to remove using the DataManager helper method
-                let assetsToRemove = self.manager.getAssetsForDeletion(identifiers: self.selectedAssets)
+                let assetsToRemove = self.manager.getAssetsForDeletion(identifiers: self.manager.photoBinSelectedAssets)
                 
                 PHPhotoLibrary.shared().performChanges {
                     PHAssetChangeRequest.deleteAssets(assetsToRemove as NSArray)
@@ -106,12 +93,11 @@ struct PhotoBinTabView: View {
                     if success {
                         DispatchQueue.main.async {
                             // Remove the assets from the removeStackAssets array
-                            self.manager.removeStackAssets.removeAll { self.selectedAssets.contains($0.id) }
+                            self.manager.removeStackAssets.removeAll { self.manager.photoBinSelectedAssets.contains($0.id) }
                             self.manager.savePhotoBinState()
                             
                             // Clear selection
-                            self.selectedAssets.removeAll()
-                            self.isSelecting = false
+                            self.manager.photoBinSelectedAssets.removeAll()
                         }
                     } else if let errorMessage = error?.localizedDescription {
                         presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
@@ -167,55 +153,42 @@ struct PhotoBinTabView: View {
     
     /// Asset grid item
     private func AssetGridItem(for model: AssetModel) -> some View {
-        let isSelected = selectedAssets.contains(model.id)
+        let isSelected = manager.photoBinSelectedAssets.contains(model.id)
         
         return RoundedRectangle(cornerRadius: 12).frame(height: tileHeight)
             .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
             .overlay(AssetImage(for: model)).clipped()
             .overlay(
                 ZStack {
-                    if isSelecting {
-                        // Selection overlay
-                        Rectangle()
-                            .foregroundColor(.black.opacity(isSelected ? 0.3 : 0))
-                            .overlay(
-                                VStack {
-                                    HStack {
-                                        Spacer()
-                                        ZStack {
-                                            Circle()
-                                                .strokeBorder(isSelected ? Color.clear : Color.white, lineWidth: 2)
-                                                .background(Circle().foregroundColor(isSelected ? .blue : .clear))
-                                                .frame(width: 24, height: 24)
-                                            
-                                            if isSelected {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 12, weight: .bold))
-                                                    .foregroundColor(.white)
-                                            }
-                                        }
-                                        .padding(8)
-                                    }
+                    // Selection overlay
+                    Rectangle()
+                        .foregroundColor(.black.opacity(isSelected ? 0.3 : 0))
+                        .overlay(
+                            VStack {
+                                HStack {
                                     Spacer()
+                                    ZStack {
+                                        Circle()
+                                            .strokeBorder(isSelected ? Color.clear : Color.white, lineWidth: 2)
+                                            .background(Circle().foregroundColor(isSelected ? .blue : .clear))
+                                            .frame(width: 24, height: 24)
+                                        
+                                        if isSelected {
+                                            Image(systemName: "checkmark")
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.white)
+                                        }
+                                    }
+                                    .padding(8)
                                 }
-                            )
-                    }
-                    // Remove the restore button when not in selection mode
+                                Spacer()
+                            }
+                        )
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 15))
             .onTapGesture {
-                if isSelecting {
-                    // Toggle selection when in selection mode
-                    if isSelected {
-                        selectedAssets.remove(model.id)
-                    } else {
-                        selectedAssets.insert(model.id)
-                    }
-                } else {
-                    // Enter selection mode
-                    isSelecting = true
-                }
+                toggleItemSelection(assetId: model.id)
             }
     }
     
@@ -239,20 +212,12 @@ struct PhotoBinTabView: View {
         (UIScreen.main.bounds.width - 56.0)/3.0
     }
     
-    /// Toggle selection mode or select/deselect all
-    private func toggleSelection() {
-        if isSelecting {
-            // Already in selection mode, toggle select all/none
-            if selectedAssets.count == manager.removeStackAssets.count {
-                // Deselect all
-                selectedAssets.removeAll()
-            } else {
-                // Select all
-                selectedAssets = Set(manager.removeStackAssets.map { $0.id })
-            }
+    /// Toggle selection of a single item
+    private func toggleItemSelection(assetId: String) {
+        if manager.photoBinSelectedAssets.contains(assetId) {
+            manager.photoBinSelectedAssets.remove(assetId)
         } else {
-            // Enter selection mode
-            isSelecting = true
+            manager.photoBinSelectedAssets.insert(assetId)
         }
     }
 }
