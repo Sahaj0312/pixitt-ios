@@ -14,7 +14,7 @@ struct SettingsTabView: View {
     var body: some View {
         ScrollView(.vertical) {
             VStack {
-                InAppPurchasesPromoBannerView
+               // InAppPurchasesPromoBannerView
                 CustomHeader(title: "In-App Purchases")
                 InAppPurchasesView
                 CustomHeader(title: "Spread the Word")
