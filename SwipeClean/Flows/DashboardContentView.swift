@@ -26,6 +26,10 @@ struct DashboardContentView: View {
             case .premium: PremiumView
             }
         }
+        .onAppear {
+            // Check for date changes when the dashboard appears
+            manager.checkAndResetDailySwipes()
+        }
     }
     
     /// Custom header view
@@ -52,11 +56,20 @@ struct DashboardContentView: View {
                         Text("\(AppConfig.freePhotosStackCount - manager.freePhotosStackCount)")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.accentColor)
+                            .onAppear {
+                                // Check for date changes when the count is displayed
+                                manager.checkAndResetDailySwipes()
+                            }
+                        
+                        Text("/ \(AppConfig.freePhotosStackCount)")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundColor(.secondary)
                         
                         Image(systemName: "photo.stack")
                             .font(.system(size: 14))
                             .foregroundColor(.accentColor)
                     }
+                    .id("swipeCount_\(manager.lastResetDate)_\(manager.freePhotosStackCount)") // Force refresh when date or count changes
                     .padding(8)
                     .background(
                         RoundedRectangle(cornerRadius: 8)

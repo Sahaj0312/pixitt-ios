@@ -25,7 +25,7 @@ class AppConfig {
     
     // MARK: - In App Purchases
     static let premiumVersion: String = "Pixitt.Premium"
-    static let freePhotosStackCount: Int = 500
+    static let freePhotosStackCount: Int = 100
     static let premiumFeaturesList: [String] = ["Unlimited Swipes", "Remove All Ads"]
 }
 

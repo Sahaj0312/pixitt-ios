@@ -25,6 +25,7 @@ class DataManager: NSObject, ObservableObject {
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
+    @AppStorage("lastResetDate") var lastResetDate: String = Date().string(format: "yyyy-MM-dd")
     @AppStorage("didShowOnboardingFlow") var didShowOnboardingFlow: Bool = false
     @AppStorage(AppConfig.premiumVersion) var isPremiumUser: Bool = false {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
@@ -48,6 +49,60 @@ class DataManager: NSObject, ObservableObject {
         prepareCoreData()
         configurePlaceholderAssets()
         checkAuthorizationStatus()
+        checkAndResetDailySwipes()
+        
+        // Add observers for app lifecycle events to check for date changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appBecameActive),
+            name: UIApplication.didBecomeActiveNotification,
+            object: nil
+        )
+        
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(appEnteredForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+    }
+    
+    /// Called when the app becomes active
+    @objc private func appBecameActive() {
+        print("App became active - checking for date change")
+        checkAndResetDailySwipes()
+    }
+    
+    /// Called when the app enters the foreground
+    @objc private func appEnteredForeground() {
+        print("App entered foreground - checking for date change")
+        checkAndResetDailySwipes()
+    }
+    
+    /// Check if the date has changed and reset the daily swipe count if needed
+    func checkAndResetDailySwipes() {
+        let currentDate = Date()
+        let calendar = Calendar.current
+        
+        // Convert stored date string back to Date
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let lastDate = dateFormatter.date(from: lastResetDate) ?? Date().addingTimeInterval(-86400) // Default to yesterday if parsing fails
+        
+        // Compare calendar components (year, month, day) instead of string representation
+        let lastComponents = calendar.dateComponents([.year, .month, .day], from: lastDate)
+        let currentComponents = calendar.dateComponents([.year, .month, .day], from: currentDate)
+        
+        print("Checking daily swipes reset - Current date: \(currentDate), Last reset date: \(lastDate)")
+        
+        if lastComponents.day != currentComponents.day || 
+           lastComponents.month != currentComponents.month || 
+           lastComponents.year != currentComponents.year {
+            // Date has changed, reset the swipe count
+            print("Resetting swipe count - Date changed from \(lastResetDate) to \(currentDate)")
+            freePhotosStackCount = 0
+            lastResetDate = currentDate.string(format: "yyyy-MM-dd")
+        }
     }
     
     /// Sorted months based on current date
