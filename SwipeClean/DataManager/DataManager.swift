@@ -143,6 +143,9 @@ class DataManager: NSObject, ObservableObject {
             photoBinSelectedAssets = Set(removeStackAssets.map { $0.id })
         }
         
+        // Post notification for selection change
+        NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
+        
         // Force UI update
         DispatchQueue.main.async {
             self.objectWillChange.send()
@@ -329,6 +332,54 @@ extension DataManager {
 
 // MARK: - Photo Bin implementation
 extension DataManager {
+    /// Calculate the total size of selected assets in the photo bin
+    func calculateSelectedAssetsSize() -> (Double, String) {
+        let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
+        let selectedAssets = allAssets.filter { photoBinSelectedAssets.contains($0.localIdentifier) }
+        
+        // Calculate total size in bytes
+        var totalSize: Double = 0
+        
+        for asset in selectedAssets {
+            // For images, use the approximate size based on pixel dimensions
+            if asset.mediaType == .image {
+                // Approximate size calculation based on pixel dimensions
+                // Assuming average compression of 0.5 bytes per pixel for JPEG
+                let pixelCount = Double(asset.pixelWidth * asset.pixelHeight)
+                let approximateSize = pixelCount * 0.5 // 0.5 bytes per pixel is a reasonable estimate
+                totalSize += approximateSize
+            }
+            // For videos, use the duration-based approximation
+            else if asset.mediaType == .video {
+                // Approximate size calculation based on duration
+                // Assuming average bitrate of 4 MB per second for videos
+                let durationInSeconds = asset.duration
+                let approximateSize = durationInSeconds * 4 * 1024 * 1024 // 4 MB per second
+                totalSize += approximateSize
+            }
+        }
+        
+        // Convert to appropriate unit (KB, MB, GB)
+        let (size, unit) = formatFileSize(bytes: totalSize)
+        
+        return (size, unit)
+    }
+    
+    /// Format file size from bytes to appropriate unit
+    private func formatFileSize(bytes: Double) -> (Double, String) {
+        let kb = bytes / 1024
+        let mb = kb / 1024
+        let gb = mb / 1024
+        
+        if gb >= 1 {
+            return (round(gb * 10) / 10, "GB")
+        } else if mb >= 1 {
+            return (round(mb * 10) / 10, "MB")
+        } else {
+            return (round(kb * 10) / 10, "KB")
+        }
+    }
+    
     /// Move a `delete` item back `assetsSwipeStack`
     /// - Parameter model: asset model
     func restoreAsset(_ model: AssetModel) {

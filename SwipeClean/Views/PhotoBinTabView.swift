@@ -7,6 +7,7 @@ struct PhotoBinTabView: View {
     
     @EnvironmentObject var manager: DataManager
     @State public var isSelecting: Bool = true // Always in selection mode
+    @State private var selectionCount: Int = 0 // Track selection count for UI updates
     private let gridSpacing: Double = 10.0
     
     // MARK: - Main rendering function
@@ -24,6 +25,21 @@ struct PhotoBinTabView: View {
             if !manager.photoBinSelectedAssets.isEmpty {
                 VStack {
                     Spacer()
+                    
+                    // Display the total size of selected assets
+                    let (size, unit) = manager.calculateSelectedAssetsSize()
+                    Text("\(manager.photoBinSelectedAssets.count) items selected (\(String(format: "%.1f", size)) \(unit))")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.secondaryTextColor.opacity(0.1))
+                        )
+                        .padding(.bottom, 10)
+                        .id("selection_size_\(selectionCount)") // Force refresh when selection changes
+                    
                     HStack(spacing: 20) {
                         // Keep button
                         Button(action: {
@@ -54,6 +70,27 @@ struct PhotoBinTabView: View {
                 }
             }
         }
+        .onAppear {
+            // Set initial selection count
+            selectionCount = manager.photoBinSelectedAssets.count
+            
+            // Add observer for selection changes
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("PhotoBinSelectionChanged"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                self.selectionCount = self.manager.photoBinSelectedAssets.count
+            }
+        }
+        .onDisappear {
+            // Remove observer when view disappears
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("PhotoBinSelectionChanged"),
+                object: nil
+            )
+        }
     }
     
     /// Keep selected assets
@@ -68,6 +105,9 @@ struct PhotoBinTabView: View {
         
         // Clear selection
         manager.photoBinSelectedAssets.removeAll()
+        
+        // Update selection count for UI refresh
+        selectionCount = 0
         
         // Force UI refresh
         DispatchQueue.main.async {
@@ -98,6 +138,9 @@ struct PhotoBinTabView: View {
                             
                             // Clear selection
                             self.manager.photoBinSelectedAssets.removeAll()
+                            
+                            // Update selection count for UI refresh
+                            self.selectionCount = 0
                         }
                     } else if let errorMessage = error?.localizedDescription {
                         presentAlert(title: "Oops!", message: errorMessage, primaryAction: .OK)
@@ -219,6 +262,9 @@ struct PhotoBinTabView: View {
         } else {
             manager.photoBinSelectedAssets.insert(assetId)
         }
+        
+        // Update selection count for UI refresh
+        selectionCount = manager.photoBinSelectedAssets.count
     }
 }
 
