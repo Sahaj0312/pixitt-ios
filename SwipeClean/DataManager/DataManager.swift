@@ -26,7 +26,7 @@ class DataManager: NSObject, ObservableObject {
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
-    @AppStorage("lastResetDate") var lastResetDate: String = Date().string(format: "yyyy-MM-dd")
+    @AppStorage("lastResetDate") var lastResetDate: String = ""
     @AppStorage("didShowOnboardingFlow") var didShowOnboardingFlow: Bool = false
     @AppStorage(AppConfig.premiumVersion) var isPremiumUser: Bool = false {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
@@ -85,27 +85,54 @@ class DataManager: NSObject, ObservableObject {
     
     /// Check if the date has changed and reset the daily swipe count if needed
     func checkAndResetDailySwipes() {
+        // Get the current date in the user's timezone
         let currentDate = Date()
         let calendar = Calendar.current
         
-        // Convert stored date string back to Date
+        // Format dates for comparison and logging
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
-        let lastDate = dateFormatter.date(from: lastResetDate) ?? Date().addingTimeInterval(-86400) // Default to yesterday if parsing fails
+        dateFormatter.timeZone = calendar.timeZone
         
-        // Compare calendar components (year, month, day) instead of string representation
-        let lastComponents = calendar.dateComponents([.year, .month, .day], from: lastDate)
-        let currentComponents = calendar.dateComponents([.year, .month, .day], from: currentDate)
+        // Get today's date string
+        let todayString = dateFormatter.string(from: currentDate)
         
-        print("Checking daily swipes reset - Current date: \(currentDate), Last reset date: \(lastDate)")
+        // If lastResetDate is empty (first app launch), set it to yesterday to force a reset
+        if lastResetDate.isEmpty {
+            // Set to yesterday to force a reset
+            let yesterday = calendar.date(byAdding: .day, value: -1, to: currentDate) ?? currentDate
+            lastResetDate = dateFormatter.string(from: yesterday)
+            print("First launch detected - setting last reset date to yesterday: \(lastResetDate)")
+        }
         
-        if lastComponents.day != currentComponents.day || 
-           lastComponents.month != currentComponents.month || 
-           lastComponents.year != currentComponents.year {
+        // Log the current state
+        print("Checking daily swipes reset:")
+        print("- Today's date: \(todayString)")
+        print("- Last reset date: \(lastResetDate)")
+        print("- Current swipes used: \(freePhotosStackCount)")
+        print("- Remaining swipes: \(AppConfig.freePhotosStackCount - freePhotosStackCount)")
+        
+        // Compare date strings directly
+        if lastResetDate != todayString {
             // Date has changed, reset the swipe count
-            print("Resetting swipe count - Date changed from \(lastResetDate) to \(currentDate)")
+            print("RESETTING SWIPE COUNT - Date changed from \(lastResetDate) to \(todayString)")
             freePhotosStackCount = 0
-            lastResetDate = currentDate.string(format: "yyyy-MM-dd")
+            lastResetDate = todayString
+            
+            // Force UI update
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+                
+                // Show a notification to the user that their swipes have been reset
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("DailySwipesReset"),
+                    object: nil
+                )
+            }
+            
+            print("After reset - Swipes used: 0, Remaining swipes: \(AppConfig.freePhotosStackCount)")
+        } else {
+            print("No reset needed - Same day detected")
         }
     }
     

@@ -4,6 +4,7 @@ import SwiftUI
 struct DashboardContentView: View {
     
     @EnvironmentObject var manager: DataManager
+    @State private var showSwipeResetMessage: Bool = false
     
     // MARK: - Main rendering function
     var body: some View {
@@ -19,6 +20,34 @@ struct DashboardContentView: View {
             if manager.didProcessAssets == false {
                 OverlayLoadingView()
             }
+            
+            // Show swipe reset message
+            if showSwipeResetMessage {
+                VStack {
+                    Spacer()
+                    Text("Your daily swipes have been reset!")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 20)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.accentColor)
+                        )
+                        .shadow(color: .black.opacity(0.2), radius: 5, y: 2)
+                        .padding(.bottom, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                .zIndex(100)
+                .onAppear {
+                    // Auto-hide the message after 3 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        withAnimation {
+                            showSwipeResetMessage = false
+                        }
+                    }
+                }
+            }
         }
         /// Full screen flow presentation
         .fullScreenCover(item: $manager.fullScreenMode) { type in
@@ -29,6 +58,25 @@ struct DashboardContentView: View {
         .onAppear {
             // Check for date changes when the dashboard appears
             manager.checkAndResetDailySwipes()
+            
+            // Add observer for swipe reset notification
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("DailySwipesReset"),
+                object: nil,
+                queue: .main
+            ) { _ in
+                withAnimation {
+                    showSwipeResetMessage = true
+                }
+            }
+        }
+        .onDisappear {
+            // Remove observer when view disappears
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSNotification.Name("DailySwipesReset"),
+                object: nil
+            )
         }
     }
     
@@ -53,7 +101,9 @@ struct DashboardContentView: View {
                 } else {
                     // Show free swipes count for all other tabs
                     HStack(spacing: 4) {
-                        Text("\(AppConfig.freePhotosStackCount - manager.freePhotosStackCount)")
+                        // Display remaining swipes (max - used)
+                        let remainingSwipes = AppConfig.freePhotosStackCount - manager.freePhotosStackCount
+                        Text("\(remainingSwipes)")
                             .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.accentColor)
                             .onAppear {
