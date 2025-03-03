@@ -22,6 +22,7 @@ class DataManager: NSObject, ObservableObject {
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
     @Published var videoAssets: [AssetModel] = [AssetModel]()
     @Published var photoBinSelectedAssets: Set<String> = []
+    @Published var allSizesCalculated: Bool = false
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
     @AppStorage("freePhotosStackCount") var freePhotosStackCount: Int = 0
@@ -42,6 +43,9 @@ class DataManager: NSObject, ObservableObject {
     private var fetchResult: PHFetchResult<PHAsset>!
     private var assetsByMonth: [CalendarMonth: [PHAsset]] = [CalendarMonth: [PHAsset]]()
     var assetsByYearMonth: [Int: [CalendarMonth: [PHAsset]]] = [:]
+    
+    /// Cache for asset sizes to avoid recalculating
+    private var assetSizeCache: [String: Double] = [:]
     
     /// Default initializer
     override init() {
@@ -135,12 +139,24 @@ class DataManager: NSObject, ObservableObject {
         
         if isAllPhotoBinItemsSelected {
             // Deselect all
-            
             photoBinSelectedAssets.removeAll()
+            allSizesCalculated = false
         } else {
             // Select all
-            
             photoBinSelectedAssets = Set(removeStackAssets.map { $0.id })
+            
+            // Reset the allSizesCalculated flag
+            allSizesCalculated = false
+            
+            // Trigger size calculation for all newly selected assets
+            for assetId in photoBinSelectedAssets {
+                if let asset = getAssetByIdentifier(assetId) {
+                    calculateActualAssetSize(asset)
+                }
+            }
+            
+            // Check if all sizes are already calculated (from cache)
+            checkAndUpdateAllSizesCalculated()
         }
         
         // Post notification for selection change
@@ -332,6 +348,32 @@ extension DataManager {
 
 // MARK: - Photo Bin implementation
 extension DataManager {
+    /// Check if all selected assets have their sizes calculated
+    func areAllSelectedAssetSizesCalculated() -> Bool {
+        let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
+        let selectedAssets = allAssets.filter { photoBinSelectedAssets.contains($0.localIdentifier) }
+        
+        // If no assets are selected, return false
+        if selectedAssets.isEmpty {
+            return false
+        }
+        
+        // Check if all selected assets have their sizes in the cache
+        for asset in selectedAssets {
+            if assetSizeCache[asset.localIdentifier] == nil {
+                return false
+            }
+        }
+        
+        return true
+    }
+    
+    /// Get asset by identifier - provides access to assets without exposing fetchResult
+    func getAssetByIdentifier(_ identifier: String) -> PHAsset? {
+        let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
+        return allAssets.first(where: { $0.localIdentifier == identifier })
+    }
+    
     /// Calculate the total size of selected assets in the photo bin
     func calculateSelectedAssetsSize() -> (Double, String) {
         let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
@@ -340,22 +382,32 @@ extension DataManager {
         // Calculate total size in bytes
         var totalSize: Double = 0
         
+        // Check cache first for quick results
         for asset in selectedAssets {
-            // For images, use the approximate size based on pixel dimensions
+            if let cachedSize = assetSizeCache[asset.localIdentifier] {
+                totalSize += cachedSize
+                continue
+            }
+            
+            // If not in cache, calculate size
             if asset.mediaType == .image {
-                // Approximate size calculation based on pixel dimensions
-                // Assuming average compression of 0.5 bytes per pixel for JPEG
+                // For images, use a quick estimation based on pixel dimensions
+                // We'll update this with the actual size asynchronously
                 let pixelCount = Double(asset.pixelWidth * asset.pixelHeight)
                 let approximateSize = pixelCount * 0.5 // 0.5 bytes per pixel is a reasonable estimate
                 totalSize += approximateSize
-            }
-            // For videos, use the duration-based approximation
-            else if asset.mediaType == .video {
-                // Approximate size calculation based on duration
-                // Assuming average bitrate of 4 MB per second for videos
+                
+                // Start an async request to get the actual size for next time
+                calculateActualAssetSize(asset)
+            } else if asset.mediaType == .video {
+                // For videos, use a quick estimation based on duration
+                // We'll update this with the actual size asynchronously
                 let durationInSeconds = asset.duration
-                let approximateSize = durationInSeconds * 4 * 1024 * 1024 // 4 MB per second
+                let approximateSize = durationInSeconds * 0.5 * 1024 * 1024 // 0.5 MB per second
                 totalSize += approximateSize
+                
+                // Start an async request to get the actual size for next time
+                calculateActualAssetSize(asset)
             }
         }
         
@@ -363,6 +415,79 @@ extension DataManager {
         let (size, unit) = formatFileSize(bytes: totalSize)
         
         return (size, unit)
+    }
+    
+    /// Calculate the actual size of an asset asynchronously and cache the result
+    func calculateActualAssetSize(_ asset: PHAsset) {
+        // Skip if we already have this asset in the cache
+        guard assetSizeCache[asset.localIdentifier] == nil else { 
+            // Check if this was the last asset we needed to calculate
+            checkAndUpdateAllSizesCalculated()
+            return 
+        }
+        
+        DispatchQueue.global(qos: .utility).async {
+            if asset.mediaType == .image {
+                let options = PHImageRequestOptions()
+                options.isNetworkAccessAllowed = false // Only use local assets
+                options.deliveryMode = .fastFormat // Use fast format for size calculation
+                
+                self.imageManager.requestImageDataAndOrientation(for: asset, options: options) { data, _, _, _ in
+                    if let imageData = data {
+                        let size = Double(imageData.count)
+                        DispatchQueue.main.async {
+                            self.assetSizeCache[asset.localIdentifier] = size
+                            // Check if all sizes are now calculated
+                            self.checkAndUpdateAllSizesCalculated()
+                            // Notify UI to refresh if this asset is selected
+                            if self.photoBinSelectedAssets.contains(asset.localIdentifier) {
+                                NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
+                            }
+                        }
+                    }
+                }
+            } else if asset.mediaType == .video {
+                let options = PHVideoRequestOptions()
+                options.version = .original
+                options.deliveryMode = .fastFormat
+                options.isNetworkAccessAllowed = false // Only use local assets
+                
+                self.imageManager.requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
+                    if let urlAsset = avAsset as? AVURLAsset {
+                        do {
+                            let attributes = try FileManager.default.attributesOfItem(atPath: urlAsset.url.path)
+                            if let fileSize = attributes[.size] as? NSNumber {
+                                let size = Double(truncating: fileSize)
+                                DispatchQueue.main.async {
+                                    self.assetSizeCache[asset.localIdentifier] = size
+                                    // Check if all sizes are now calculated
+                                    self.checkAndUpdateAllSizesCalculated()
+                                    // Notify UI to refresh if this asset is selected
+                                    if self.photoBinSelectedAssets.contains(asset.localIdentifier) {
+                                        NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
+                                    }
+                                }
+                            }
+                        } catch {
+                            // If we can't get the file size, don't cache anything
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /// Check if all selected assets have their sizes calculated and update the allSizesCalculated property
+    func checkAndUpdateAllSizesCalculated() {
+        let wasCalculated = allSizesCalculated
+        allSizesCalculated = areAllSelectedAssetSizesCalculated()
+        
+        // If the state changed, force a UI update
+        if wasCalculated != allSizesCalculated {
+            DispatchQueue.main.async {
+                self.objectWillChange.send()
+            }
+        }
     }
     
     /// Format file size from bytes to appropriate unit

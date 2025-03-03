@@ -26,19 +26,21 @@ struct PhotoBinTabView: View {
                 VStack {
                     Spacer()
                     
-                    // Display the total size of selected assets
-                    let (size, unit) = manager.calculateSelectedAssetsSize()
-                    Text("\(manager.photoBinSelectedAssets.count) items selected (\(String(format: "%.1f", size)) \(unit))")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.secondaryTextColor.opacity(0.1))
-                        )
-                        .padding(.bottom, 10)
-                        .id("selection_size_\(selectionCount)") // Force refresh when selection changes
+                    // Display the total size of selected assets only when all sizes are calculated
+                    if manager.allSizesCalculated {
+                        let (size, unit) = manager.calculateSelectedAssetsSize()
+                        Text("\(manager.photoBinSelectedAssets.count) items selected (\(String(format: "%.1f", size)) \(unit))")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.primary) // Changed from .secondary to .primary for higher contrast
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Color.secondaryTextColor.opacity(0.7)) // Increased opacity from 0.1 to 0.25
+                            )
+                            .padding(.bottom, 10)
+                            .id("selection_size_\(selectionCount)_\(manager.allSizesCalculated)") // Force refresh when selection changes or sizes are calculated
+                    }
                     
                     HStack(spacing: 20) {
                         // Keep button
@@ -259,8 +261,26 @@ struct PhotoBinTabView: View {
     private func toggleItemSelection(assetId: String) {
         if manager.photoBinSelectedAssets.contains(assetId) {
             manager.photoBinSelectedAssets.remove(assetId)
+            // Reset the allSizesCalculated flag when selection changes
+            manager.allSizesCalculated = false
+            // Check if all remaining selected assets have their sizes calculated
+            DispatchQueue.main.async {
+                self.manager.checkAndUpdateAllSizesCalculated()
+            }
         } else {
             manager.photoBinSelectedAssets.insert(assetId)
+            // Reset the allSizesCalculated flag when selection changes
+            manager.allSizesCalculated = false
+            
+            // Trigger size calculation immediately for newly selected assets
+            if let asset = manager.getAssetByIdentifier(assetId) {
+                manager.calculateActualAssetSize(asset)
+            }
+            
+            // Check if all selected assets have their sizes calculated (from cache)
+            DispatchQueue.main.async {
+                self.manager.checkAndUpdateAllSizesCalculated()
+            }
         }
         
         // Update selection count for UI refresh
