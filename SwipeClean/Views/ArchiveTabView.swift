@@ -3,7 +3,7 @@ import Photos
 import UIKit
 
 /// Shows a grid of assets to be deleted
-struct PhotoBinTabView: View {
+struct ArchiveTabView: View {
     
     @EnvironmentObject var manager: DataManager
     @State public var isSelecting: Bool = true // Always in selection mode
@@ -22,14 +22,14 @@ struct PhotoBinTabView: View {
             }
             
             // Floating action buttons - show whenever there are selected assets
-            if !manager.photoBinSelectedAssets.isEmpty {
+            if !manager.archiveSelectedAssets.isEmpty {
                 VStack {
                     Spacer()
                     
                     // Display the total size of selected assets only when all sizes are calculated
                     if manager.allSizesCalculated {
                         let (size, unit) = manager.calculateSelectedAssetsSize()
-                        Text("\(manager.photoBinSelectedAssets.count) items selected (\(String(format: "%.1f", size)) \(unit))")
+                        Text("\(manager.archiveSelectedAssets.count) items selected (\(String(format: "%.1f", size)) \(unit))")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.primary) // Changed from .secondary to .primary for higher contrast
                             .padding(.vertical, 8)
@@ -74,22 +74,22 @@ struct PhotoBinTabView: View {
         }
         .onAppear {
             // Set initial selection count
-            selectionCount = manager.photoBinSelectedAssets.count
+            selectionCount = manager.archiveSelectedAssets.count
             
             // Add observer for selection changes
             NotificationCenter.default.addObserver(
-                forName: NSNotification.Name("PhotoBinSelectionChanged"),
+                forName: NSNotification.Name("ArchiveSelectionChanged"),
                 object: nil,
                 queue: .main
             ) { _ in
-                self.selectionCount = self.manager.photoBinSelectedAssets.count
+                self.selectionCount = self.manager.archiveSelectedAssets.count
             }
         }
         .onDisappear {
             // Remove observer when view disappears
             NotificationCenter.default.removeObserver(
                 self,
-                name: NSNotification.Name("PhotoBinSelectionChanged"),
+                name: NSNotification.Name("ArchiveSelectionChanged"),
                 object: nil
             )
         }
@@ -98,7 +98,7 @@ struct PhotoBinTabView: View {
     /// Keep selected assets
     private func keepSelectedAssets() {
         // Get selected assets
-        let assetsToKeep = manager.removeStackAssets.filter { manager.photoBinSelectedAssets.contains($0.id) }
+        let assetsToKeep = manager.removeStackAssets.filter { manager.archiveSelectedAssets.contains($0.id) }
         
         // Restore each selected asset
         for asset in assetsToKeep {
@@ -106,7 +106,7 @@ struct PhotoBinTabView: View {
         }
         
         // Clear selection
-        manager.photoBinSelectedAssets.removeAll()
+        manager.archiveSelectedAssets.removeAll()
         
         // Update selection count for UI refresh
         selectionCount = 0
@@ -120,14 +120,14 @@ struct PhotoBinTabView: View {
     /// Delete selected assets
     private func deleteSelectedAssets() {
         // Show confirmation alert
-        let itemsCount = manager.photoBinSelectedAssets.count
+        let itemsCount = manager.archiveSelectedAssets.count
         presentAlert(
             title: "Delete Photos",
             message: "Are you sure you want to permanently delete these \(itemsCount) photos?",
             primaryAction: .Cancel,
             secondaryAction: .init(title: "Delete", style: .destructive, handler: { _ in
                 // Get assets to remove using the DataManager helper method
-                let assetsToRemove = self.manager.getAssetsForDeletion(identifiers: self.manager.photoBinSelectedAssets)
+                let assetsToRemove = self.manager.getAssetsForDeletion(identifiers: self.manager.archiveSelectedAssets)
                 
                 PHPhotoLibrary.shared().performChanges {
                     PHAssetChangeRequest.deleteAssets(assetsToRemove as NSArray)
@@ -135,11 +135,11 @@ struct PhotoBinTabView: View {
                     if success {
                         DispatchQueue.main.async {
                             // Remove the assets from the removeStackAssets array
-                            self.manager.removeStackAssets.removeAll { self.manager.photoBinSelectedAssets.contains($0.id) }
-                            self.manager.savePhotoBinState()
+                            self.manager.removeStackAssets.removeAll { self.manager.archiveSelectedAssets.contains($0.id) }
+                            self.manager.saveArchiveState()
                             
                             // Clear selection
-                            self.manager.photoBinSelectedAssets.removeAll()
+                            self.manager.archiveSelectedAssets.removeAll()
                             
                             // Update selection count for UI refresh
                             self.selectionCount = 0
@@ -173,10 +173,10 @@ struct PhotoBinTabView: View {
             
             VStack {
                 Spacer()
-                Image(systemName: "trash.slash")
+                Image(systemName: "archivebox.slash")
                     .font(.system(size: 40)).padding(5)
-                Text("Bin is Empty").font(.title2).fontWeight(.bold)
-                Text("No photos marked for deletion. Swipe through your photos to add them here.")
+                Text("Archive is Empty").font(.title2).fontWeight(.bold)
+                Text("No photos marked for archiving. Swipe through your photos to add them here.")
                     .font(.body).multilineTextAlignment(.center).opacity(0.6)
                     .padding(.horizontal).fixedSize(horizontal: false, vertical: true)
                 Spacer()
@@ -198,7 +198,7 @@ struct PhotoBinTabView: View {
     
     /// Asset grid item
     private func AssetGridItem(for model: AssetModel) -> some View {
-        let isSelected = manager.photoBinSelectedAssets.contains(model.id)
+        let isSelected = manager.archiveSelectedAssets.contains(model.id)
         
         return RoundedRectangle(cornerRadius: 12).frame(height: tileHeight)
             .foregroundStyle(Color.secondaryTextColor).opacity(0.2)
@@ -259,8 +259,8 @@ struct PhotoBinTabView: View {
     
     /// Toggle selection of a single item
     private func toggleItemSelection(assetId: String) {
-        if manager.photoBinSelectedAssets.contains(assetId) {
-            manager.photoBinSelectedAssets.remove(assetId)
+        if manager.archiveSelectedAssets.contains(assetId) {
+            manager.archiveSelectedAssets.remove(assetId)
             // Reset the allSizesCalculated flag when selection changes
             manager.allSizesCalculated = false
             // Check if all remaining selected assets have their sizes calculated
@@ -268,7 +268,7 @@ struct PhotoBinTabView: View {
                 self.manager.checkAndUpdateAllSizesCalculated()
             }
         } else {
-            manager.photoBinSelectedAssets.insert(assetId)
+            manager.archiveSelectedAssets.insert(assetId)
             // Reset the allSizesCalculated flag when selection changes
             manager.allSizesCalculated = false
             
@@ -284,7 +284,7 @@ struct PhotoBinTabView: View {
         }
         
         // Update selection count for UI refresh
-        selectionCount = manager.photoBinSelectedAssets.count
+        selectionCount = manager.archiveSelectedAssets.count
     }
 }
 
@@ -294,6 +294,6 @@ struct PhotoBinTabView: View {
     //manager.removeStackAssets = manager.galleryAssets
     return ZStack {
         Color.backgroundColor.ignoresSafeArea()
-        PhotoBinTabView().environmentObject(manager)
+        ArchiveTabView().environmentObject(manager)
     }
-}
+} 

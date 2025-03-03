@@ -89,12 +89,12 @@ struct DashboardContentView: View {
                     .foregroundColor(.accentColor)
                 Spacer()
                 
-                // Add Select All/Deselect All button only for PhotoBin tab and when there are items
-                if manager.selectedTab == .photoBin && manager.removeStackAssets.count > 0 {
+                // Add Select All/Deselect All button only for Archive tab and when there are items
+                if manager.selectedTab == .archive && manager.removeStackAssets.count > 0 {
                     Button(action: {
-                        manager.togglePhotoBinSelection()
+                        manager.toggleArchiveSelection()
                     }) {
-                        Text(manager.isAllPhotoBinItemsSelected ? "Deselect All" : "Select All")
+                        Text(manager.isAllArchiveItemsSelected ? "Deselect All" : "Select All")
                             .font(.system(size: 16, weight: .medium))
                             .foregroundColor(.accentColor)
                     }
@@ -139,7 +139,7 @@ struct DashboardContentView: View {
             switch type {
             case .discover: HomeTabView().padding(.top, topPadding)
             case .swipeClean: SwipeTabView().padding(.top, topPadding)
-            case .photoBin: PhotoBinTabView().padding(.top, topPadding)
+            case .archive: ArchiveTabView().padding(.top, topPadding)
             case .settings: SettingsTabView().padding(.top, topPadding)
             }
         }

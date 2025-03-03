@@ -43,13 +43,14 @@ struct SwipeTabView: View {
                         .foregroundStyle(LinearGradient(colors: [.red, .accentColor, .green], startPoint: .leading, endPoint: .trailing))
                         .offset(y: 20).padding().blur(radius: 20).opacity(0.3)
                 )
-            VStack {
-                Image(systemName: "checkmark.seal")
-                    .font(.system(size: 40)).padding(5)
-                Text("Done Swiping").font(.title2).fontWeight(.bold)
-                Text("You've reviewed all photos. Check your delete list in the '\(CustomTabBarItem.photoBin.rawValue)' tab.")
-                    .font(.body).multilineTextAlignment(.center)
-                    .padding(.horizontal).opacity(0.6)
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 60))
+                    .foregroundColor(.accentColor)
+                Text("You've reviewed all photos. Check your delete list in the '\(CustomTabBarItem.archive.rawValue)' tab.")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
             }
         }
     }

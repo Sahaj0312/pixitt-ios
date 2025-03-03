@@ -26,8 +26,8 @@
 		79F321EC2B24D7EC00FC8E9C /* PermissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F321EB2B24D7EC00FC8E9C /* PermissionsView.swift */; };
 		79F321EE2B24E41200FC8E9C /* SwipeTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F321ED2B24E41200FC8E9C /* SwipeTabView.swift */; };
 		79F321F02B24E88500FC8E9C /* PhotoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F321EF2B24E88500FC8E9C /* PhotoCardView.swift */; };
-		79F321F22B24FE4200FC8E9C /* PhotoBinTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F321F12B24FE4200FC8E9C /* PhotoBinTabView.swift */; };
 		79F321F42B25082D00FC8E9C /* SettingsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79F321F32B25082D00FC8E9C /* SettingsTabView.swift */; };
+		9EDE05052D767628001A61AB /* ArchiveTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EDE05042D767627001A61AB /* ArchiveTabView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -64,8 +64,8 @@
 		79F321EB2B24D7EC00FC8E9C /* PermissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsView.swift; sourceTree = "<group>"; };
 		79F321ED2B24E41200FC8E9C /* SwipeTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeTabView.swift; sourceTree = "<group>"; };
 		79F321EF2B24E88500FC8E9C /* PhotoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCardView.swift; sourceTree = "<group>"; };
-		79F321F12B24FE4200FC8E9C /* PhotoBinTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoBinTabView.swift; sourceTree = "<group>"; };
 		79F321F32B25082D00FC8E9C /* SettingsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTabView.swift; sourceTree = "<group>"; };
+		9EDE05042D767627001A61AB /* ArchiveTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ArchiveTabView.swift; path = SwipeClean/Views/ArchiveTabView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,10 +137,10 @@
 			isa = PBXGroup;
 			children = (
 				79F321E62B24B0A900FC8E9C /* HomeTabView.swift */,
+				9EDE05042D767627001A61AB /* ArchiveTabView.swift */,
 				79F321ED2B24E41200FC8E9C /* SwipeTabView.swift */,
 				79F321EF2B24E88500FC8E9C /* PhotoCardView.swift */,
 				79F321EB2B24D7EC00FC8E9C /* PermissionsView.swift */,
-				79F321F12B24FE4200FC8E9C /* PhotoBinTabView.swift */,
 				79F321F32B25082D00FC8E9C /* SettingsTabView.swift */,
 				7981D0022B260C9800961697 /* OverlayLoadingView.swift */,
 			);
@@ -250,6 +250,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				79E111872B114BE700027BBD /* PremiumContentView.swift in Sources */,
+				9EDE05052D767628001A61AB /* ArchiveTabView.swift in Sources */,
 				79F321F42B25082D00FC8E9C /* SettingsTabView.swift in Sources */,
 				7981D0062B26104500961697 /* Database.xcdatamodeld in Sources */,
 				7967CC6C2969EE12006199E8 /* AppConfig.swift in Sources */,
@@ -260,7 +261,6 @@
 				7917D0D32969E71300ECEE15 /* AppTemplateApp.swift in Sources */,
 				7967CC712969EEBA006199E8 /* AppDelegate.swift in Sources */,
 				7967CC682969EDD2006199E8 /* DashboardContentView.swift in Sources */,
-				79F321F22B24FE4200FC8E9C /* PhotoBinTabView.swift in Sources */,
 				79F321F02B24E88500FC8E9C /* PhotoCardView.swift in Sources */,
 				79F321EA2B24B73500FC8E9C /* AssetModel.swift in Sources */,
 				7981D0032B260C9800961697 /* OverlayLoadingView.swift in Sources */,

@@ -47,22 +47,22 @@ enum FullScreenMode: Int, Identifiable {
 /// Custom tab bar items
 enum CustomTabBarItem: String, CaseIterable, Identifiable {
     case discover = "Discover"
-    case swipeClean = "Pixitt"
-    case photoBin = "PhotoBin"
+    case swipeClean = "Swipe"
+    case archive = "Archive"
     case settings = "Settings"
-    var id: Int { hashValue }
     
-    /// Tab bar icon
+    var id: String { self.rawValue }
+    
     var icon: String {
         switch self {
         case .discover:
-            return "house.fill"
+            return "photo.stack"
         case .swipeClean:
-            return "photo.stack.fill"
-        case .photoBin:
-            return "trash.fill"
+            return "hand.draw"
+        case .archive:
+            return "archivebox.fill"
         case .settings:
-            return "gearshape.fill"
+            return "gear"
         }
     }
 }

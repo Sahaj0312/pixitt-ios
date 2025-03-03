@@ -21,7 +21,7 @@ class DataManager: NSObject, ObservableObject {
     @Published var swipeStackLoadMore: Bool = false
     @Published var swipeStackTitle: String = AppConfig.swipeStackOnThisDateTitle
     @Published var videoAssets: [AssetModel] = [AssetModel]()
-    @Published var photoBinSelectedAssets: Set<String> = []
+    @Published var archiveSelectedAssets: Set<String> = []
     @Published var allSizesCalculated: Bool = false
    
     /// Dynamic properties that the UI will react to AND store values in UserDefaults
@@ -32,8 +32,10 @@ class DataManager: NSObject, ObservableObject {
         didSet { Interstitial.shared.isPremiumUser = isPremiumUser }
     }
     
-    // Persistence key for photo bin assets
-    private let photoBinPersistenceKey = "photoBinAssetIDs"
+    // MARK: - Persistence Keys
+    private let lastResetDateKey = "lastResetDate"
+    private let freePhotosStackCountKey = "freePhotosStackCount"
+    private let archivePersistenceKey = "archiveAssetIDs"
     
     /// Core Data container with the database model
     private let container: NSPersistentContainer = NSPersistentContainer(name: "Database")
@@ -157,42 +159,38 @@ class DataManager: NSObject, ObservableObject {
     }
     
     // Computed property to check if all items are selected
-    var isAllPhotoBinItemsSelected: Bool {
-        !removeStackAssets.isEmpty && photoBinSelectedAssets.count == removeStackAssets.count
+    var isAllArchiveItemsSelected: Bool {
+        !removeStackAssets.isEmpty && archiveSelectedAssets.count == removeStackAssets.count
     }
     
     /// Toggle selection of all items in the photo bin
-    func togglePhotoBinSelection() {
-        
-        if isAllPhotoBinItemsSelected {
+    func toggleArchiveSelection() {
+        if isAllArchiveItemsSelected {
             // Deselect all
-            photoBinSelectedAssets.removeAll()
+            archiveSelectedAssets.removeAll()
             allSizesCalculated = false
         } else {
             // Select all
-            photoBinSelectedAssets = Set(removeStackAssets.map { $0.id })
+            archiveSelectedAssets = Set(removeStackAssets.map { $0.id })
             
             // Reset the allSizesCalculated flag
             allSizesCalculated = false
             
             // Trigger size calculation for all newly selected assets
-            for assetId in photoBinSelectedAssets {
+            for assetId in archiveSelectedAssets {
                 if let asset = getAssetByIdentifier(assetId) {
                     calculateActualAssetSize(asset)
                 }
             }
             
-            // Check if all sizes are already calculated (from cache)
-            checkAndUpdateAllSizesCalculated()
+            // Check if all selected assets have their sizes calculated (from cache)
+            DispatchQueue.main.async {
+                self.checkAndUpdateAllSizesCalculated()
+            }
         }
         
-        // Post notification for selection change
-        NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
-        
-        // Force UI update
-        DispatchQueue.main.async {
-            self.objectWillChange.send()
-        }
+        // Notify UI to refresh
+        NotificationCenter.default.post(name: NSNotification.Name("ArchiveSelectionChanged"), object: nil)
     }
 }
 
@@ -351,7 +349,7 @@ extension DataManager {
                     // Rebuild gallery assets to ensure counts are updated
                     self.rebuildGalleryAssets()
                     self.objectWillChange.send()
-                    self.savePhotoBinState()
+                    self.saveArchiveState()
                 }
             }
         } else {
@@ -378,7 +376,7 @@ extension DataManager {
     /// Check if all selected assets have their sizes calculated
     func areAllSelectedAssetSizesCalculated() -> Bool {
         let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
-        let selectedAssets = allAssets.filter { photoBinSelectedAssets.contains($0.localIdentifier) }
+        let selectedAssets = allAssets.filter { archiveSelectedAssets.contains($0.localIdentifier) }
         
         // If no assets are selected, return false
         if selectedAssets.isEmpty {
@@ -404,7 +402,7 @@ extension DataManager {
     /// Calculate the total size of selected assets in the photo bin
     func calculateSelectedAssetsSize() -> (Double, String) {
         let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
-        let selectedAssets = allAssets.filter { photoBinSelectedAssets.contains($0.localIdentifier) }
+        let selectedAssets = allAssets.filter { archiveSelectedAssets.contains($0.localIdentifier) }
         
         // Calculate total size in bytes
         var totalSize: Double = 0
@@ -467,8 +465,8 @@ extension DataManager {
                             // Check if all sizes are now calculated
                             self.checkAndUpdateAllSizesCalculated()
                             // Notify UI to refresh if this asset is selected
-                            if self.photoBinSelectedAssets.contains(asset.localIdentifier) {
-                                NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
+                            if self.archiveSelectedAssets.contains(asset.localIdentifier) {
+                                NotificationCenter.default.post(name: NSNotification.Name("ArchiveSelectionChanged"), object: nil)
                             }
                         }
                     }
@@ -490,8 +488,8 @@ extension DataManager {
                                     // Check if all sizes are now calculated
                                     self.checkAndUpdateAllSizesCalculated()
                                     // Notify UI to refresh if this asset is selected
-                                    if self.photoBinSelectedAssets.contains(asset.localIdentifier) {
-                                        NotificationCenter.default.post(name: NSNotification.Name("PhotoBinSelectionChanged"), object: nil)
+                                    if self.archiveSelectedAssets.contains(asset.localIdentifier) {
+                                        NotificationCenter.default.post(name: NSNotification.Name("ArchiveSelectionChanged"), object: nil)
                                     }
                                 }
                             }
@@ -572,7 +570,7 @@ extension DataManager {
             removeStackAssets.removeAll(where: { $0.id == model.id })
             
             // Save the updated photo bin state
-            savePhotoBinState()
+            saveArchiveState()
             
             // Notify UI to refresh
             DispatchQueue.main.async {
@@ -583,7 +581,7 @@ extension DataManager {
         } else {
             // If we can't find the asset in the fetch result, just remove it from the bin
             removeStackAssets.removeAll(where: { $0.id == model.id })
-            savePhotoBinState()
+            saveArchiveState()
         }
     }
     
@@ -685,7 +683,7 @@ extension DataManager {
         }
         
         /// Load saved photo bin state
-        loadPhotoBinState()
+        loadArchiveState()
         
         /// Show the `Discover` tab
         DispatchQueue.main.async {
@@ -760,7 +758,7 @@ extension DataManager {
     }
     
     /// Delete all photos from the bin
-    func emptyPhotoBin() {
+    func emptyArchive() {
         let itemsCount: Int = removeStackAssets.count
         presentAlert(title: "Delete Photos", message: "Are you sure you want to delete these \(itemsCount) photos?", primaryAction: .Cancel, secondaryAction: .init(title: "Delete", style: .destructive, handler: { _ in
             let allAssets = self.assetsByMonth.flatMap { $0.value }
@@ -781,7 +779,7 @@ extension DataManager {
                         }
                         
                         self.removeStackAssets.removeAll()
-                        self.savePhotoBinState()
+                        self.saveArchiveState()
                         self.objectWillChange.send() // Ensure UI updates
                     }
                 } else if let errorMessage = error?.localizedDescription {
@@ -896,14 +894,14 @@ extension DataManager {
 // MARK: - Photo Bin Persistence
 extension DataManager {
     /// Save photo bin asset IDs to UserDefaults
-    func savePhotoBinState() {
+    func saveArchiveState() {
         let assetIDs = removeStackAssets.map { $0.id }
-        UserDefaults.standard.set(assetIDs, forKey: photoBinPersistenceKey)
+        UserDefaults.standard.set(assetIDs, forKey: archivePersistenceKey)
     }
     
     /// Load photo bin assets from UserDefaults
-    private func loadPhotoBinState() {
-        guard let assetIDs = UserDefaults.standard.array(forKey: photoBinPersistenceKey) as? [String],
+    private func loadArchiveState() {
+        guard let assetIDs = UserDefaults.standard.array(forKey: archivePersistenceKey) as? [String],
               !assetIDs.isEmpty else {
             return
         }
@@ -922,7 +920,7 @@ extension DataManager {
         
         // If some assets are no longer in the library, update the saved state
         if validAssetIDs.count < assetIDs.count {
-            UserDefaults.standard.set(validAssetIDs, forKey: photoBinPersistenceKey)
+            UserDefaults.standard.set(validAssetIDs, forKey: archivePersistenceKey)
         }
         
         // Track which assets need to be removed from the main collections
