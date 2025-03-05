@@ -11,6 +11,10 @@ class AssetModel: Identifiable, Equatable {
     var duration: TimeInterval = 0
     var isVideo: Bool { duration > 0 }
     
+    // Static dictionary to track last swiped date for each month and year
+    static var lastSwipedDates: [String: Date] = [:]
+    private static let lastSwipedDatesKey = "lastSwipedDates"
+    
     init(id: String, month: CalendarMonth) {
         self.id = id
         self.month = month
@@ -50,6 +54,77 @@ class AssetModel: Identifiable, Equatable {
             return String(format: "%d:%02d", minutes, seconds)
         } else {
             return String(format: "0:%02d", seconds)
+        }
+    }
+    
+    /// Create a key for the month and year
+    static func keyForMonthYear(month: CalendarMonth, year: Int) -> String {
+        return "\(month.rawValue)_\(year)"
+    }
+    
+    /// Update the last swiped date for a month and year
+    static func updateLastSwipedDate(for month: CalendarMonth, year: Int) {
+        let key = keyForMonthYear(month: month, year: year)
+        lastSwipedDates[key] = Date()
+        saveLastSwipedDates()
+    }
+    
+    /// Get formatted time since last swipe for a month and year
+    static func formattedTimeSinceLastSwipe(for month: CalendarMonth, year: Int) -> String? {
+        let key = keyForMonthYear(month: month, year: year)
+        guard let lastSwipedDate = lastSwipedDates[key] else {
+            return nil
+        }
+        
+        let now = Date()
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: lastSwipedDate, to: now)
+        
+        if let year = components.year, year > 0 {
+            return year == 1 ? "Cleaned 1 year ago" : "Cleaned \(year) years ago"
+        } else if let month = components.month, month > 0 {
+            return month == 1 ? "Cleaned 1 month ago" : "Cleaned \(month) months ago"
+        } else if let day = components.day, day > 0 {
+            if day == 1 {
+                return "Cleaned yesterday"
+            } else {
+                return "Cleaned \(day) days ago"
+            }
+        } else if let hour = components.hour, hour > 0 {
+            return hour == 1 ? "Cleaned 1 hour ago" : "Cleaned \(hour) hours ago"
+        } else if let minute = components.minute, minute > 0 {
+            return minute == 1 ? "Cleaned 1 minute ago" : "Cleaned \(minute) minutes ago"
+        } else {
+            return "Cleaned just now"
+        }
+    }
+    
+    /// Save last swiped dates to UserDefaults
+    static func saveLastSwipedDates() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        var dateStrings: [String: String] = [:]
+        for (key, date) in lastSwipedDates {
+            dateStrings[key] = dateFormatter.string(from: date)
+        }
+        
+        UserDefaults.standard.set(dateStrings, forKey: lastSwipedDatesKey)
+    }
+    
+    /// Load last swiped dates from UserDefaults
+    static func loadLastSwipedDates() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        
+        guard let dateStrings = UserDefaults.standard.dictionary(forKey: lastSwipedDatesKey) as? [String: String] else {
+            return
+        }
+        
+        for (key, dateString) in dateStrings {
+            if let date = dateFormatter.date(from: dateString) {
+                lastSwipedDates[key] = date
+            }
         }
     }
 }

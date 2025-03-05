@@ -57,6 +57,9 @@ class DataManager: NSObject, ObservableObject {
         checkAuthorizationStatus()
         checkAndResetDailySwipes()
         
+        // Load last swiped dates
+        AssetModel.loadLastSwipedDates()
+        
         // Add observers for app lifecycle events to check for date changes
         NotificationCenter.default.addObserver(
             self,
@@ -299,6 +302,32 @@ extension DataManager {
         }
     }
     
+    /// Extract year from swipe stack title
+    private func extractYearFromSwipeStackTitle() -> Int? {
+        // If the title is just a year (e.g., "2023")
+        if let year = Int(swipeStackTitle), year > 0 {
+            return year
+        }
+        
+        // If the title is in format "Month Year" (e.g., "January 2023")
+        let components = swipeStackTitle.components(separatedBy: " ")
+        if components.count > 1, let year = Int(components.last ?? ""), year > 0 {
+            return year
+        }
+        
+        return nil
+    }
+    
+    /// Get the year for an asset by its ID
+    private func getYearForAsset(_ assetID: String) -> Int? {
+        let allAssets = fetchResult.objects(at: IndexSet(integersIn: 0..<fetchResult.count))
+        if let asset = allAssets.first(where: { $0.localIdentifier == assetID }),
+           let creationDate = asset.creationDate {
+            return Calendar.current.component(.year, from: creationDate)
+        }
+        return nil
+    }
+    
     /// Mark asset as `delete`
     /// - Parameter model: asset model
     func deleteAsset(_ model: AssetModel) {
@@ -334,6 +363,22 @@ extension DataManager {
                 if asset.mediaType == .video {
                     videoAssets.removeAll(where: { $0.id == assetIdentifier })
                 }
+                
+                // Update last swiped date for this month and year
+                AssetModel.updateLastSwipedDate(for: month, year: year)
+            } else {
+                // If we can't get the creation date, use the same year determination logic as keepAsset
+                let year: Int
+                if let yearFromTitle = extractYearFromSwipeStackTitle() {
+                    year = yearFromTitle
+                } else if let assetYear = getYearForAsset(model.id) {
+                    year = assetYear
+                } else {
+                    year = Calendar.current.component(.year, from: Date())
+                }
+                
+                // Update last swiped date for this month and year
+                AssetModel.updateLastSwipedDate(for: model.month, year: year)
             }
             
             self.requestImage(for: asset, assetIdentifier: assetIdentifier, size: imageSize) { image in
@@ -749,8 +794,12 @@ extension DataManager {
             let thisDateTitle: String = AppConfig.swipeStackOnThisDateTitle
             if videos {
                 self.swipeStackTitle = "Videos"
+            } else if onThisDate {
+                self.swipeStackTitle = thisDateTitle
+            } else if let calendarMonth = calendarMonth, let year = year {
+                self.swipeStackTitle = "\(calendarMonth.rawValue.capitalized) \(year)"
             } else {
-                self.swipeStackTitle = onThisDate ? thisDateTitle : calendarMonth?.rawValue.capitalized ?? ""
+                self.swipeStackTitle = calendarMonth?.rawValue.capitalized ?? ""
             }
         }
         

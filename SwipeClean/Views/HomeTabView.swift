@@ -61,6 +61,13 @@ struct HomeTabView: View {
                             .font(.system(size: 16, weight: .bold, design: .rounded))
                             .foregroundStyle(Color.primaryTextColor)
                         Spacer()
+                        
+                        // Last swiped date text
+                        if let lastSwipedText = AssetModel.formattedTimeSinceLastSwipe(for: month, year: year) {
+                            Text(lastSwipedText)
+                                .font(.system(size: 10, weight: .regular))
+                                .foregroundStyle(Color.secondaryTextColor)
+                        }
                     }
                     
                     let monthAssets = manager.assetsPreview(for: month, year: year)
